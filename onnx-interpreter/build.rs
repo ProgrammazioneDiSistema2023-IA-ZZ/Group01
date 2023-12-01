@@ -13,6 +13,8 @@ fn main() {
         }
     }
 
+    //Create the Parser;
+    //crea i file .rs nella cartella parser_code
     protobuf_codegen::Codegen::new()
         // Use `protoc` parser, optional.
         .protoc()
