@@ -1,48 +1,58 @@
-
+mod auxiliary_functions;
 mod parser_code;
+mod ops;
 
 extern crate protobuf;
 
-use std::collections::{HashSet, HashMap};
-
-mod lib;
-use lib::{Operator, Add, MatMul, AutoPad };
-
-mod auxiliary_functions;
-
-use auxiliary_functions::{topological_sort, load_data, read_initialiazers, load_model,
-                          model_proto_to_struct, print_nodes, argmax, load_predictions,
-                          argmax_per_row, compute_error_rate, compute_accuracy };
+use std::collections::HashMap;
 use ndarray::ArrayD;
+
+use crate::auxiliary_functions::{
+                            load_data, read_initialiazers, load_model, model_proto_to_struct,
+                            print_nodes, argmax, load_predictions, argmax_per_row,
+                            compute_error_rate, compute_accuracy, display_model_info };
 
 
 fn main() {
 
-    //let data_path= "input_0_resnet18.pb";
-    //let output_path = "output_0_resnet18.pb";
-    let data_path= "input_0_mnist.pb";
-    let output_path = "output_0_mnist.pb";
+    let model = "mnist";
+    //let model = "resnet18";
 
-    //let model_path = "resnet18-v1-7.onnx";
-    let model_path = "mnist-8.onnx";
+    let data_path = format!("models/{}/test_data_set_0/input_0.pb", model);
+    let output_path = format!("models/{}/test_data_set_0/output_0.pb", model);
+    let model_path = format!("models/{}/model.onnx", model);
 
     // Load ONNX model
-    let model = load_model(model_path);
+    let model = load_model(&model_path);
 
-    print_nodes(&model);
+    //print_nodes(&model);
     //println!("{:?}", model.graph.initializer);
 
-    let mut inputs: HashMap<String, ArrayD<f32>> = HashMap::new();
-    read_initialiazers(&model.graph.initializer, &mut inputs);
+    let model_name = model_path.to_string();    //todo() write something better
+    let mut version= 0;
+    for op_set in &model.opset_import{
+        version = op_set.version.clone();
+    }
 
-    let mut model_read = model_proto_to_struct(&model, &inputs);
+    if version != 8{
+        panic!("This ONNX Parser works only for version 8");
+    }
+
+    let mut initialiazers: HashMap<String, ArrayD<f32>> = HashMap::new();
+    initialiazers = read_initialiazers(&model.graph.initializer);
+
+    let mut model_read = model_proto_to_struct(&model, &mut initialiazers);
     for node in &model_read{
         println!("{}", node.to_string());
         println!();
     }
     println!("In totale ci sono {} nodi", model_read.len());
 
-    let (input_image, input_name) = load_data(data_path).unwrap();
+    display_model_info(model_name, version);
+
+    let mut inputs: HashMap<String, ArrayD<f32>> = HashMap::new();
+
+    let (input_image, input_name) = load_data(&data_path).unwrap();
     inputs.insert(input_name, input_image);
 
 
@@ -63,10 +73,10 @@ fn main() {
 
     // Execute nodes in sorted order
     for node in model_read.iter_mut() {
-            println!("{:?}", node.to_string());
+            println!("{}", node.to_string());
             let output = node.execute(&inputs).unwrap();
             inputs.insert(node.get_output_name(), output.clone());
-            println!("Output shape: {:?}", output.shape());
+            println!();
     }
 
     let final_output = inputs.get(final_layer_name).unwrap();
@@ -75,7 +85,7 @@ fn main() {
     let final_result = argmax_per_row(final_output);
     println!("Final result: {:?}", &final_result);
 
-    let predictions = load_predictions(output_path).unwrap();
+    let predictions = load_predictions(&output_path).unwrap();
     let final_predictions = argmax_per_row(&predictions);
     println!("Predictions: {:?}", &final_predictions);
     /*

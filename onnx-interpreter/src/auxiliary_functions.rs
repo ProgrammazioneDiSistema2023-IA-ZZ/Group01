@@ -3,66 +3,14 @@ use std::fs;
 use std::iter::FromIterator;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
+use byteorder::{ByteOrder, LittleEndian};
 
 extern crate protobuf;
 use protobuf::{Message};
 use crate::parser_code::onnx_ml_proto3::{ModelProto, TensorProto};
+use crate::ops::*;
 
-use byteorder::{ByteOrder, LittleEndian};
-
-
-use crate::lib::{Operator, Add, ReLU, MatMul, MaxPool, Conv, Reshape, AutoPad, Flatten,
-                 GlobalAveragePool, Gemm, BatchNorm };
-
-
-pub fn topological_sort(dependencies: HashMap<String, HashSet<String>>) -> Vec<String> {
-    let mut in_degree = HashMap::new();
-    let mut graph = HashMap::new();
-
-    // Initialize in_degree and graph
-    for (node, deps) in dependencies.iter() {
-        in_degree.entry(node).or_insert(0);
-        println!("Node: {:?}", node);
-        for dep in deps {
-            *in_degree.entry(dep).or_insert(0) += 1;
-            graph.entry(node.clone()).or_insert_with(HashSet::new).insert(dep.clone());
-        }
-    }
-
-    // Find all nodes with in_degree 0
-    let mut queue = VecDeque::new();
-    for (node, &degree) in in_degree.iter() {
-        println!("Node: {}", node);
-        println!("Degree: {}", degree);
-        if degree == 0 {
-            queue.push_back(node.clone());
-        }
-    }
-
-    let mut order = Vec::new();
-    while let Some(node) = queue.pop_front() {
-        order.push(node.clone());
-
-        if let Some(neighbors) = graph.get(node.as_str()) {
-            for neighbor in neighbors {
-                if let Some(degree) = in_degree.get_mut(&neighbor.to_string()) {
-                    *degree -= 1;
-                    if *degree == 0 {
-                        queue.push_back(neighbor);
-                    }
-                }
-            }
-        }
-    }
-
-    if order.len() == in_degree.len() {
-        order
-    } else {
-        vec![] // Cycle detected or graph is incomplete
-    }
-}
-
-pub fn load_model(file_path: &str) -> ModelProto {
+pub fn load_model(file_path: &String) -> ModelProto {
     // Load and deserialize your .onnx file here
     let model_bytes = std::fs::read(file_path).expect("Failed to read .onnx file");
     let mut model = ModelProto::new(); // Create an instance of ModelProto
@@ -75,7 +23,13 @@ pub fn load_model(file_path: &str) -> ModelProto {
     model
 }
 
-pub fn load_data(file_path: &str) -> Result<(ArrayD<f32>, String), String> {
+pub fn raw_data_to_vec(data: &TensorProto)->Vec<f32>{
+    data.raw_data.chunks_exact(4)
+        .map(|chunk| f32::from_le_bytes(chunk.try_into().expect("Slice with incorrect length")) as f32)
+        .collect()
+}
+
+pub fn load_data(file_path: &String) -> Result<(ArrayD<f32>, String), String> {
     // Read the file contents into a buffer
     let buffer = fs::read(file_path).map_err(|e| format!("Failed to open the file: {}", e))?;
     let mut data = TensorProto::new();
@@ -94,9 +48,7 @@ pub fn load_data(file_path: &str) -> Result<(ArrayD<f32>, String), String> {
         return Err("Data length mismatch.".to_string());
     }
 
-    let data_array: Vec<f32> = data.raw_data.chunks_exact(4)
-        .map(|chunk| f32::from_le_bytes(chunk.try_into().expect("Slice with incorrect length")) as f32)
-        .collect();
+    let data_array: Vec<f32> = raw_data_to_vec(&data);
 
     let dynamic_dims = IxDyn(&dims);
     let ndarray_data = Array::from_shape_vec(dynamic_dims, data_array)
@@ -106,9 +58,8 @@ pub fn load_data(file_path: &str) -> Result<(ArrayD<f32>, String), String> {
     Ok((ndarray_data, data.name))
 }
 
-pub fn read_initialiazers(model_initializers: &[TensorProto], initializer_set: &mut HashMap<String, ArrayD<f32>>)
-    -> () {
-    //let mut initializer_set: HashMap<String, Array<f32, IxDyn>> = HashMap::new();
+pub fn read_initialiazers(model_initializers: &[TensorProto] ) -> HashMap<String, ArrayD<f32>> {
+    let mut initializer_set: HashMap<String, Array<f32, IxDyn>> = HashMap::new();
 
     for initializer in model_initializers {
         // Prepare to hold the data
@@ -146,7 +97,7 @@ pub fn read_initialiazers(model_initializers: &[TensorProto], initializer_set: &
         initializer_set.insert(initializer.name.clone(), ndarray_data);
     }
 
-
+    initializer_set
 }
 
 pub fn print_nodes(model: &ModelProto) {
@@ -201,9 +152,9 @@ pub fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
         .collect()
 }
 
-pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &HashMap<String, Array<f32, IxDyn>>)
-    ->Vec<Box<dyn Operator>>{
-    let mut model_vec: Vec<Box<dyn Operator>> = Vec::new();
+pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<String, Array<f32, IxDyn>>)
+    ->Vec<Box<dyn op_operator::Operator>>{
+    let mut model_vec: Vec<Box<dyn op_operator::Operator>> = Vec::new();
 
     if let Some(graph) = model.graph.as_ref() {
 
@@ -211,197 +162,49 @@ pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &HashMap<Strin
         for node in &graph.node {
             match node.op_type.as_str() {
                 "Add" => {
-                    let initializer = initializer_set.get(&node.input[1]);
-
-                    let inputs_name:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
-
-                    let add_op = if let Some(init) = initializer {
-                        // If initializer exists, use it
-                        Add::new(node.name.to_owned(), inputs_name, node.output[0].to_owned(), Some(init.to_owned()))
-                    } else {
-                        // If initializer does not exist, handle accordingly
-                        Add::new(node.name.to_owned(), inputs_name, node.output[0].to_owned(), None)
-                    };
-
-                    model_vec.push(Box::new(add_op));
-
+                    model_vec.push(Box::new(op_add::Add::new(node,initializer_set)));
                 },
                 "BatchNormalization" => {
-                    println!("Batch Normalization: {:?}", &node);
-                    let gamma = initializer_set.get(&node.input[1]).unwrap();
-                    let beta = initializer_set.get(&node.input[2]).unwrap();
-                    let mean = initializer_set.get(&node.input[3]).unwrap();
-                    let var = initializer_set.get(&node.input[4]).unwrap();
-
-                    model_vec.push(Box::new(BatchNorm::new(
-                        node.name.to_owned(),
-                        node.input[0].to_owned(),
-                        node.output[0].to_owned(),
-                        node.attribute[0].f as f32,
-                        node.attribute[1].f as f32,
-                        node.attribute[2].i,
-                        gamma.to_owned(),
-                        beta.to_owned(),
-                        mean.to_owned(),
-                        var.to_owned()
-
-                    )))
+                    model_vec.push(Box::new(op_batchnorm::BatchNorm::new(
+                        node,initializer_set)))
                 },
                 "Conv" => {
-                    let kernel_weights = initializer_set.get(&node.input[1]).unwrap();
-                    let mut kernel_shape = None;
-                    let mut strides = None;
-                    let mut group = 1usize; // default value
-                    let mut dilations = None;
-                    let mut pads = None;
-                    let mut auto_pad = None;
-
-                    for attribute in &node.attribute {
-                        match attribute.name.as_str() {
-                            "kernel_shape" => kernel_shape = Some(attribute.ints.iter().map(|x| *x as usize).collect()),
-                            "strides" => strides = Some(attribute.ints.iter().map(|x| *x as usize).collect()),
-                            "group" => group = attribute.i as usize,
-                            "dilations" => dilations = Some(attribute.ints.iter().map(|x| *x as usize).collect()),
-                            "pads" => pads = Some(attribute.ints.iter().map(|x| *x as usize).collect()),
-                            "auto_pad" => {
-                                auto_pad = Some(match String::from_utf8(attribute.s.clone()) {
-                                    Ok(value) => match value.as_str() {
-                                        "SAME_UPPER" => AutoPad::SAME_UPPER,
-                                        "SAME_LOWER" => AutoPad::SAME_LOWER,
-                                        "VALID" => AutoPad::VALID,
-                                        _ => AutoPad::NOTSET,
-                                    },
-                                    Err(_) => AutoPad::NOTSET,
-                                });
-                            }
-                            // Handle other attributes like "auto_pad" as needed
-                            _ => {}
-                        }
-                    }
-
-                    let mut bias = None;
-                    if node.name.len() == 3 {
-                        bias = Some(initializer_set.get(&node.input[2]).unwrap().to_owned());
-                    }
-
-                    model_vec.push(Box::new(Conv::new(
-                        node.name.to_owned(),
-                        node.input[0].to_owned(),
-                        node.output[0].to_owned(),
-                        kernel_shape,
-                        strides,
-                        auto_pad,
-                        pads,
-                        group,
-                        dilations,
-                        kernel_weights.to_owned(),
-                        bias,
+                    model_vec.push(Box::new(op_conv::Conv::new(
+                       node, initializer_set
                     )))
                 },
                 "Flatten" =>{
                     if node.attribute.is_empty(){
-                        model_vec.push(Box::new(Flatten::new(node.name.to_owned(), node.input[0].to_owned(), node.output[0].to_owned(), 1)))
+                        model_vec.push(Box::new(op_flatten::Flatten::new(node, initializer_set)))
                     }
                 },
                 "Gemm" => {
-                    let B = initializer_set.get(&node.input[1]).unwrap();
-                    let C = initializer_set.get(&node.input[2]);
-
-                    let inputs_name:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
-
-                    let gemm_op = if let Some(c) = C{
-                        Gemm::new(node.name.to_owned(), inputs_name,
-                                  node.output[0].to_owned(),
-                                  node.attribute[0].f as f32,
-                                  node.attribute[1].f as f32,
-                                  node.attribute[2].i,
-                                  node.attribute[3].i,
-                                  B.to_owned(),
-                                  Some(c.to_owned()),
-                        )
-                    } else{
-                        Gemm::new(node.name.to_owned(), inputs_name,
-                                  node.output[0].to_owned(),
-                                  node.attribute[0].f as f32,
-                                  node.attribute[1].f as f32,
-                                  node.attribute[2].i,
-                                  node.attribute[3].i,
-                                  B.to_owned(),
-                                  None,
-                        )
-                    };
-
-                    model_vec.push(Box::new(gemm_op))
+                    model_vec.push(Box::new(op_gemm::Gemm::new(node, initializer_set)));
                 },
                 "GlobalAveragePool" => {
-                    model_vec.push(Box::new(GlobalAveragePool::new(node.name.to_owned(), node.input[0].to_owned(), node.output[0].to_owned())));
+                    model_vec.push(Box::new(op_globalaveragepooling::
+                    GlobalAveragePool::new(node, initializer_set)));
                 },
                 "MatMul" => {
-                    let inputs_name:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
-                    model_vec.push(Box::new(MatMul::new(node.name.to_owned(), inputs_name,
-                                                        node.output[0].to_owned())));
+
+                    model_vec.push(Box::new(op_matmul::MatMul::new(node, initializer_set)));
                 },
                 "MaxPool" => {
-                    let mut auto_pad:Option<AutoPad> = None;             //default is 'NOTSET'
-                    let mut ceil_mode : Option<i64> = None;
-                    let mut dilations = None;
-                    let mut pads= None;
-                    let mut strides = None;
-                    let mut kernel_shape = None;
 
-                    for attribute in &node.attribute {
-                        match attribute.name.as_str() {
-                            "ceil_mode" => ceil_mode = Some(attribute.i),
-                            "strides" => strides = Some(attribute.ints.iter().map(|&i| i as i64).collect()),
-                            "kernel_shape" => kernel_shape = Some (attribute.ints.iter().map(|&i| i as i64).collect()),
-                            "dilations" => dilations = {
-                                Some(attribute.ints.iter().map(|i| *i as i64).collect::<Vec<i64>>()) },
-                            "pads" => pads = Some ( attribute.ints.iter().map(|i| *i as i64).collect::<Vec<i64>>()),
-                            "auto_pad"=>{
-                                auto_pad = Some(match String::from_utf8(attribute.s.clone()) {
-                                    Ok(value) => match value.as_str() {
-                                        "SAME_UPPER" => AutoPad::SAME_UPPER,
-                                        "SAME_LOWER" => AutoPad::SAME_LOWER,
-                                        "VALID" => AutoPad::VALID,
-                                        _ => AutoPad::NOTSET,
-                                    },
-                                    Err(_) => AutoPad::NOTSET,
-                                });
-                            },
-                            // Handle other attributes
-                            _ => {}
-                        }
-                    }
-                    model_vec.push(Box::new(MaxPool::new(
-                        node.name.to_owned(),
-                        node.input[0].to_owned(),
-                        node.output[0].to_owned(),
-                        kernel_shape.to_owned(),
-                        strides.to_owned(),
-                        pads.to_owned(),
-                        auto_pad,
-                        ceil_mode.to_owned(),
-                        dilations.to_owned(),
+                    model_vec.push(Box::new(op_maxpool::MaxPool::new(
+                        node, initializer_set
                     )))
                 },
                 "Relu" => {
-                    model_vec.push(Box::new(ReLU::new(node.name.to_owned(), node.input[0].to_owned(), node.output[0].to_owned())));
+                    model_vec.push(Box::new(op_relu::ReLU::new(
+                        node, initializer_set
+                    )));
                 },
                 "Reshape" => {
-                    if let Some(initializer) = initializer_set.get(node.input[1].as_str()) {
-                        // Convert the array_base to Vec<i64> here
-                        let vec_usize = initializer.iter().map(|&f| f as usize).collect();
-
-                        model_vec.push(Box::new(Reshape::new(
-                            node.name.to_owned(),
-                            node.input[0].to_owned(),
-                            node.output[0].to_owned(),
-                            vec_usize
+                        model_vec.push(Box::new(op_reshape::Reshape::new(
+                            node,initializer_set
                         )));
-                    } else {
-                        // TODO Handle the case where the initializer is not found
-                        // This could be returning an error or using a default value
-                    }
+
                 },
                 _ => {
                     // TODO Handle the case where the initializer is not found, eventually blocking the whole program
@@ -412,7 +215,8 @@ pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &HashMap<Strin
     }
     model_vec
 }
-pub fn load_predictions(file_path: &str) -> Result<ArrayD<f32>, String> {
+
+pub fn load_predictions(file_path: &String) -> Result<ArrayD<f32>, String> {
     // Read the file contents into a buffer
     let buffer = std::fs::read(file_path).expect("failed to open the file");
     let mut data = TensorProto::new();
@@ -474,4 +278,18 @@ pub fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, &'static 
     let count = vec1.iter().zip(vec2.iter()).filter(|(&x, &y)| x == y).count();
     Ok(count  as f32/vec1.len() as f32)
 }
+
+pub fn display_model_info(model_name: String, model_version: i64) {
+    println!("-----------------------------------------------------");
+    println!("|                                                   |");
+    println!("|            ONNX Model Information                 |");
+    println!("|                                                   |");
+    println!("-----------------------------------------------------");
+    println!("| Model Name:        {:<30} |", model_name);
+    println!("| Model Version:     {:<30} |", model_version);
+    println!("-----------------------------------------------------");
+    println!("| Execution Starting...                             |");
+    println!("-----------------------------------------------------");
+}
+
 
