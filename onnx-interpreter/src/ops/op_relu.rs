@@ -33,11 +33,15 @@ impl Operator for ReLU {
         Ok(output_data)
     }
 
-    fn to_string(&self) -> String {
-        format!(
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!(
             "Node name: {}\nInput name: {}\nOutput name: {}",
             self.node_name, self.input_name, self.output_name
-        )
+        )*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

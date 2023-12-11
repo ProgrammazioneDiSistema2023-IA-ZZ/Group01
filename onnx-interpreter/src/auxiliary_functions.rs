@@ -280,16 +280,16 @@ pub fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, &'static 
 }
 
 pub fn display_model_info(model_name: String, model_version: i64) {
-    println!("-----------------------------------------------------");
-    println!("|                                                   |");
-    println!("|            ONNX Model Information                 |");
-    println!("|                                                   |");
-    println!("-----------------------------------------------------");
-    println!("| Model Name:        {:<30} |", model_name);
-    println!("| Model Version:     {:<30} |", model_version);
-    println!("-----------------------------------------------------");
-    println!("| Execution Starting...                             |");
-    println!("-----------------------------------------------------");
+    println!("+-----------------------------------------------------+");
+    println!("|                                                     |");
+    println!("|            ONNX Model Information                   |");
+    println!("|                                                     |");
+    println!("-------------------------------------------------------");
+    println!("| Model Name:        {:<30}   |", model_name);
+    println!("| Model Version:     {:<30}   |", model_version);
+    println!("-------------------------------------------------------");
+    println!("| Execution Starting...                               |");
+    println!("+-----------------------------------------------------+");
 }
 
 

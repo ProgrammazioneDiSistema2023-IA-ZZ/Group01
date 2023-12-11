@@ -16,10 +16,11 @@ impl Flatten {
         let node_name = node.name.to_owned();
         let input_name = node.input[0].to_owned();
         let output_name= node.output[0].to_owned();
-        let mut axis= 1;
-        if !node.attribute.is_empty(){
-            axis = node.attribute[0].i.to_owned();
-        }
+        let opt_axis = node.attribute.iter().find(|attr| attr.name == "axis");
+        let axis = match opt_axis{
+            Some(x) => x.i,
+            None => 1
+        };
         Self { node_name, input_name, output_name, axis }
     }
 }
@@ -54,9 +55,13 @@ impl Operator for Flatten {
         Ok(output_tensor)
     }
 
-    fn to_string(&self) -> String {
-        format!("Node name: {}\nInput name: {}\nOutput name: {}",
-                self.node_name, self.input_name, self.output_name)
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!("Node name: {}\nInput name: {}\nOutput name: {}",
+                self.node_name, self.input_name, self.output_name)*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

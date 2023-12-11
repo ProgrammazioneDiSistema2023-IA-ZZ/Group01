@@ -39,17 +39,22 @@ impl Operator for GlobalAveragePool {
 
         for _ in axis_to_pool {
             let dim = y.ndim();
+            // The new axis always has length 1.
             y = y.insert_axis(Axis(dim));
         }
 
         Ok(y)
     }
 
-    fn to_string(&self) -> String {
-        format!(
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!(
             "Node name: {}\nInput name: {}\nOutput name: {}",
             self.node_name, self.input_name, self.output_name
-        )
+        )*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

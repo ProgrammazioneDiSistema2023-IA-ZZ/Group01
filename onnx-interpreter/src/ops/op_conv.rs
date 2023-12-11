@@ -236,7 +236,7 @@ impl Operator for Conv{
             let (eh, ew) = (h_out as i32 * sth as i32, w_out as i32 * stw as i32);
 
             res = ArrayD::<f32>::zeros(vec![sN, self.kernel_weights.shape()[0], h_out, w_out]);
-            println!("Res shape: {:?}", res.shape());
+            //println!("Res shape: {:?}", res.shape());
 
             if let Some(b) = &self.bias {
                 let bias_shape = [1, b.shape()[0], 1, 1];
@@ -314,9 +314,13 @@ impl Operator for Conv{
     }
 
 
-    fn to_string(&self) -> String {
-        format!("Node name: {}\nInput name: {}\nOutput name: {}",
-                self.node_name, self.input_name, self.output_name)
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!("Node name: {}\nInput name: {}\nOutput name: {}",
+                self.node_name, self.input_name, self.output_name)*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

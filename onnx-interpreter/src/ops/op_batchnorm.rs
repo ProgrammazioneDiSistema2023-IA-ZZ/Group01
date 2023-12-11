@@ -8,8 +8,6 @@ pub struct BatchNorm {
     input_name: String,
     output_name: String,
     epsilon: f32,
-    momentum: f32,
-    spatial: i64,
     gamma: ArrayD<f32>,
     beta: ArrayD<f32>,
     mean: ArrayD<f32>,
@@ -22,18 +20,12 @@ impl BatchNorm {
         let output_name = node.output[0].to_owned();
         let input_name = node.input[0].to_owned();
 
-        let mut epsilon = f32::default();
-        let mut momentum = f32::default();
-        let mut spatial = i64::default();
+        let opt_epsilon = node.attribute.iter().find(|attr| attr.name == "epsilon");
+        let epsilon = match opt_epsilon{
+            Some(x) => x.f,
+            None => 1e-5
+        };
 
-        for attribute in &node.attribute{
-            match attribute.name.as_str(){
-                "epsilon" => epsilon = attribute.f.to_owned(),
-                "momentum" => momentum = attribute.f.to_owned(),
-                "spatial" => spatial = attribute.i.to_owned(),
-                _ => todo!()
-            }
-        }
 
         let mut gamma = None;
         let mut beta = None;
@@ -46,7 +38,7 @@ impl BatchNorm {
                 _ if inp_name.contains("beta") => beta = initializers.remove(inp_name),
                 _ if inp_name.contains("mean") => mean = initializers.remove(inp_name),
                 _ if inp_name.contains("var") => var = initializers.remove(inp_name),
-                _ => todo!()
+                _ => {  }
             }
         }
 
@@ -55,8 +47,6 @@ impl BatchNorm {
             input_name,
             output_name,
             epsilon,
-            momentum,
-            spatial,
             gamma: gamma.unwrap(),
             beta: beta.unwrap(),
             mean: mean.unwrap(),
@@ -76,22 +66,25 @@ impl Operator for BatchNorm {
         let mut y = x.clone(); // Clone the shape and data
 
         for (((mut y_slice, mean_val), var_val), (scale_val, b_val)) in
-        y.axis_iter_mut(ndarray::Axis(channel_axis))
-            .zip(self.mean.iter())
-            .zip(self.var.iter())
-            .zip(scale.iter().zip(b.iter())) {
-
-            for y_elem in y_slice.iter_mut() {
-                *y_elem = ((*y_elem - mean_val) / ((var_val + self.epsilon).sqrt())) * scale_val + b_val;
-            }
+            y.axis_iter_mut(ndarray::Axis(channel_axis))
+                .zip(self.mean.iter())
+                .zip(self.var.iter())
+                .zip(scale.iter().zip(b.iter())) {
+                for y_elem in y_slice.iter_mut() {
+                    *y_elem = ((*y_elem - mean_val) / ((var_val + self.epsilon).sqrt())) * scale_val + b_val;
+                }
         }
 
         Ok(y)
     }
 
-    fn to_string(&self) -> String {
-        format!("Node name: {}\nInput name: {}\nOutput name: {}",
-                self.node_name, self.input_name, self.output_name)
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!("Node name: {}\nInput name: {}\nOutput name: {}",
+                self.node_name, self.input_name, self.output_name)*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

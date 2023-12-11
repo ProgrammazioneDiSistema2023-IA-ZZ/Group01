@@ -36,7 +36,7 @@ impl Gemm {
                 "beta" => beta = attribute.f.to_owned(),
                 "transA" => trans_a = attribute.i.to_owned(),
                 "transB" => trans_b = attribute.i.to_owned(),
-                _ => todo!()
+                _ => {}
             }
         }
 
@@ -100,9 +100,13 @@ impl Operator for Gemm {
         Ok(y.into_dyn()) // Convert to ArrayD<f32> if needed
     }
 
-    fn to_string(&self) -> String {
-        format!("Node name: {}\nInputs name: {} {}\nOutput names: {}",
-                self.node_name, self.inputs_name[0], self.inputs_name[1], self.output_name)
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!("Node name: {}\nInputs name: {} {}\nOutput names: {}",
+                self.node_name, self.inputs_name[0], self.inputs_name[1], self.output_name)*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

@@ -42,9 +42,13 @@ impl Operator for Add {
     }
 
 
-    fn to_string(&self) -> String {
-        format!("Node name: {}\nInputs name: {} {}\nOutput name: {}",
-                self.node_name, self.inputs[0], self.inputs[1], self.output_name)
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!("Node name: {}\nInputs name: {} {}\nOutput name: {}",
+                self.node_name, self.inputs[0], self.inputs[1], self.output_name)*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

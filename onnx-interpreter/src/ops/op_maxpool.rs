@@ -3,14 +3,6 @@ use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
-#[derive(PartialEq)]
-pub enum AutoPad {
-    SAME_LOWER,
-    SAME_UPPER,
-    NOTSET,
-    VALID,
-}
-
 pub struct MaxPool {
     node_name: String,
     input_name: String,
@@ -18,8 +10,8 @@ pub struct MaxPool {
     kernel_shape: Option<Vec<i64>>,
     strides: Option<Vec<i64>>,
     pads: Option<Vec<i64>>,
-    autopad: Option<AutoPad>,
     ceil_mode: Option<i64>,
+    storage_order: Option<i64>,
     dilations: Option<Vec<i64>>,
 }
 
@@ -29,12 +21,12 @@ impl MaxPool {
         let input_name = node.input[0].to_owned();
         let output_name = node.output[0].to_owned();
 
-        let mut autopad:Option<AutoPad> = None;             //default is 'NOTSET'
         let mut ceil_mode : Option<i64> = None;
         let mut dilations = None;
         let mut pads= None;
         let mut strides = None;
         let mut kernel_shape = None;
+        let mut storage_order = None;
 
         for attribute in &node.attribute {
             match attribute.name.as_str() {
@@ -44,17 +36,7 @@ impl MaxPool {
                 "dilations" => dilations = {
                     Some(attribute.ints.iter().map(|i| *i as i64).collect::<Vec<i64>>()) },
                 "pads" => pads = Some ( attribute.ints.iter().map(|i| *i as i64).collect::<Vec<i64>>()),
-                "auto_pad"=>{
-                    autopad = Some(match String::from_utf8(attribute.s.clone()) {
-                        Ok(value) => match value.as_str() {
-                            "SAME_UPPER" => AutoPad::SAME_UPPER,
-                            "SAME_LOWER" => AutoPad::SAME_LOWER,
-                            "VALID" => AutoPad::VALID,
-                            _ => AutoPad::NOTSET,
-                        },
-                        Err(_) => AutoPad::NOTSET,
-                    });
-                },
+                "storage_order" => storage_order = Some(attribute.i),
                 // Handle other attributes
                 _ => {}
             }
@@ -67,8 +49,8 @@ impl MaxPool {
             kernel_shape,
             strides,
             pads,
-            autopad,
             ceil_mode,
+            storage_order,
             dilations,
         }
     }
@@ -121,8 +103,6 @@ impl Operator for MaxPool {
             }
         }
 
-        //auto_pad should be a deprecated attribute, so i didn't put code for it
-
 
         let batch_size = input.shape()[0];
         let channels = input.shape()[1];
@@ -168,14 +148,17 @@ impl Operator for MaxPool {
         Ok(output_data)
     }
 
-    fn to_string(&self) -> String {
-        format!(
+    fn to_string(&self, verbose: &bool) -> String {
+        match verbose{
+            true => format!(""),
+            false => format!("🚀 Running node: {}", self.node_name)
+        }
+        /*format!(
             "Node name: {}\nInput name: {}\nOutput name: {}",
             self.node_name,
             self.input_name,
             self.output_name,
-
-        )
+        )*/
     }
 
     fn get_inputs(&self) -> Vec<String> {

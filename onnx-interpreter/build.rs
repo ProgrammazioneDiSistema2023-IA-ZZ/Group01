@@ -1,6 +1,10 @@
 use std::fs;
+use std::env;
 
 fn main() {
+
+    env::set_var("RUST_BACKTRACE", "1");
+
     let folder_path = "src/parser_code";
 
     // Create a new folder
