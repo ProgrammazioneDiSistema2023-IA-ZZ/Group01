@@ -1,29 +1,35 @@
 use super::op_operator::Operator;
 use ndarray::ArrayD;
 use std::collections::HashMap;
+use indexmap::IndexMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 pub struct Gemm {
+    op_type: String,
     node_name: String,
-    inputs_name: Vec<String>,
+    input_name: String,
     output_name: String,
     alpha: f32,
     beta: f32,
     trans_a: i64,
     trans_b: i64,
-    b: ArrayD<f32>,
-    c: Option<ArrayD<f32>>,
+    initializers: IndexMap<String, ArrayD<f32>>,
 }
 
 impl Gemm {
-    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+        let op_type = node.op_type.to_owned();
         let node_name = node.name.to_owned();
         let output_name = node.output[0].to_owned();
 
-        let b = initializers.remove(&node.input[1]).unwrap();
-        let c = initializers.remove(&node.input[2]);
+        let input_name = node.input[0].to_owned();
 
-        let inputs_name:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
+        let mut hm: IndexMap<String, ArrayD<f32>> = IndexMap::new();
+        hm.insert(node.input[1].clone(), initializers.remove(&node.input[1]).unwrap().to_owned());
+        let c = initializers.remove(&node.input[2]);
+        if let Some(value) = c {
+            hm.insert(node.input[2].clone(), value.to_owned());
+        }
 
         let mut alpha= f32::default();
         let mut beta= f32::default();
@@ -41,15 +47,15 @@ impl Gemm {
         }
 
         Self {
+            op_type,
             node_name,
-            inputs_name,
+            input_name,
             output_name,
             alpha,
             beta,
             trans_a,
             trans_b,
-            b,
-            c
+            initializers: hm
         }
     }
 
@@ -60,10 +66,13 @@ impl Gemm {
 
 impl Operator for Gemm {
     //Y = alpha * A’ * B’ + beta * C
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<ArrayD<f32>, String> {
-        let a = inputs.get(&self.inputs_name[0]).ok_or("Input tensor A not found")?;
-        let b = &self.b;
-        let c = &self.c;
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+        let a = inputs.get(&self.input_name).ok_or("Input tensor A not found")?;
+        let b = self.initializers.iter().collect::<Vec<_>>()[0].1;
+        let mut c : Option<&ArrayD<f32>> = None;
+        if self.initializers.iter().collect::<Vec<_>>().len()>1{
+            c = Some(self.initializers.iter().collect::<Vec<_>>()[1].1);
+        }
 
         // Transpose A and B if needed
         let a_prime = if self.trans_a != 0 { Gemm::transpose(a) } else { a.clone() };
@@ -97,23 +106,29 @@ impl Operator for Gemm {
 
         }
 
-        Ok(y.into_dyn()) // Convert to ArrayD<f32> if needed
-    }
-
-    fn to_string(&self, verbose: &bool) -> String {
-        match verbose{
-            true => format!(""),
-            false => format!("🚀 Running node: {}", self.node_name)
-        }
-        /*format!("Node name: {}\nInputs name: {} {}\nOutput names: {}",
-                self.node_name, self.inputs_name[0], self.inputs_name[1], self.output_name)*/
+        Ok(vec![y.into_dyn()]) // Convert to ArrayD<f32> if needed
     }
 
     fn get_inputs(&self) -> Vec<String> {
-        self.inputs_name.clone()
+        vec![self.input_name.clone()]
     }
 
-    fn get_output_name(&self) -> String {
-        self.output_name.clone()
+    fn get_output_names(&self) -> Vec<String> {
+        vec![self.output_name.clone()]
+    }
+
+    fn get_node_name(&self) -> String {
+        self.node_name.clone()
+    }
+
+    fn get_op_type(&self) -> String {
+        self.op_type.clone()
+    }
+
+    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
+        self.initializers.iter().map(|v| {
+            (v.0.to_owned(), v.1.to_owned())
+        }
+        ).collect::<Vec<_>>()
     }
 }

@@ -4,7 +4,8 @@ use std::iter::FromIterator;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use byteorder::{ByteOrder, LittleEndian};
-
+use indexmap::IndexMap;
+use prettytable::{format, row, Row, Table, Cell, Attr};
 extern crate protobuf;
 use protobuf::{Message};
 use crate::parser_code::onnx_ml_proto3::{ModelProto, TensorProto};
@@ -58,8 +59,8 @@ pub fn load_data(file_path: &String) -> Result<(ArrayD<f32>, String), String> {
     Ok((ndarray_data, data.name))
 }
 
-pub fn read_initialiazers(model_initializers: &[TensorProto] ) -> HashMap<String, ArrayD<f32>> {
-    let mut initializer_set: HashMap<String, Array<f32, IxDyn>> = HashMap::new();
+pub fn read_initialiazers(model_initializers: &[TensorProto] ) -> IndexMap<String, Array<f32, IxDyn>> {
+    let mut initializer_set: IndexMap<String, Array<f32, IxDyn>> = IndexMap::new();
 
     for initializer in model_initializers {
         // Prepare to hold the data
@@ -93,7 +94,6 @@ pub fn read_initialiazers(model_initializers: &[TensorProto] ) -> HashMap<String
 
         let ndarray_data = Array::from_shape_vec(dynamic_dims, data)
             .map_err(|_| "Failed to create ndarray from data".to_string()).unwrap();
-
         initializer_set.insert(initializer.name.clone(), ndarray_data);
     }
 
@@ -152,7 +152,7 @@ pub fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
         .collect()
 }
 
-pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<String, Array<f32, IxDyn>>)
+pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut IndexMap<String, ArrayD<f32>>)
     ->Vec<Box<dyn op_operator::Operator>>{
     let mut model_vec: Vec<Box<dyn op_operator::Operator>> = Vec::new();
 
@@ -206,6 +206,21 @@ pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<S
                         )));
 
                 },
+                "Concat"=>{
+                    model_vec.push(Box::new(op_concat::Concat::new(
+                        node, initializer_set
+                    )))
+                }
+                "Dropout"=>{
+                    model_vec.push(Box::new(op_dropout::Dropout::new(
+                        node, initializer_set
+                    )))
+                }
+                "Softmax"=>{
+                    model_vec.push(Box::new(op_softmax::Softmax::new(
+                        node, initializer_set
+                    )))
+                }
                 _ => {
                     // TODO Handle the case where the initializer is not found, eventually blocking the whole program
                 }
@@ -279,17 +294,28 @@ pub fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, &'static 
     Ok(count  as f32/vec1.len() as f32)
 }
 
-pub fn display_model_info(model_name: String, model_version: i64) {
-    println!("+-----------------------------------------------------+");
-    println!("|                                                     |");
-    println!("|            ONNX Model Information                   |");
-    println!("|                                                     |");
-    println!("-------------------------------------------------------");
-    println!("| Model Name:        {:<30}   |", model_name);
-    println!("| Model Version:     {:<30}   |", model_version);
-    println!("-------------------------------------------------------");
-    println!("| Execution Starting...                               |");
-    println!("+-----------------------------------------------------+");
+pub fn display_model_info(model_name: String, model_version: i64, number_of_nodes: usize) {
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    table.set_titles(Row::new(vec![
+        Cell::new("ONNX model information")
+            .with_style(Attr::Bold)
+            .with_hspan(2)
+    ]));
+    table.add_row(row![
+        "Model name",
+        model_name,
+    ]);
+    table.add_row(row![
+        "Model version",
+        model_version,
+    ]);
+    table.add_row(row![
+        "Total number of nodes",
+        number_of_nodes,
+    ]);
+    table.printstd();
+    println!("Execution Starting...\n");
 }
 
 

@@ -19,32 +19,24 @@
 
 
 <!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <a href="https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group01">
-    <img src="images/rustyOnix.png" alt="Logo" width="120" height="120">
-  </a>
 
-<h3 align="center">RustONNX: Gotta Infer 'em All!</h3>
+<div align="center">
+  <img src="images/rustyOnix.png" alt="Logo" width="120" height="120">
+
+  <h3 align="center">RustONNX: Gotta Infer 'em All!</h3>
+  <br/>
 
   <p align="center">
     TODO - Short Description
-    <br />
-    <a href="https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group01/blob/main/README.md"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <!-- <a href="https://github.com/othneildrew/Best-README-Template">View Demo</a>
-    ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Request Feature</a>
---> 
+    <br/>
+    TODO- Screenshot here
+    <!--screenshot here-->
 </p>
 </div>
 
 
 
-<!-- TABLE OF CONTENTS -->
+<!-- TABLE OF CONTENTS, TO DO AT THE END -->
 <details>
   <summary>Table of Contents</summary>
   <ol>
@@ -144,40 +136,22 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 
 
-<!-- ROADMAP -->
-## Roadmap
-
-- [ ] Parser to extract neural network structure from a .onnx file
-- [ ] Implementation of a subset of ONNX operations to perform inference with at least 2 pre-trained models. Pre-trained
-models can be found [here](https://github.com/onnx/models/tree/main)
-    - [ ] First model - TO CHOOSE
-    - [ ] Second model - TO CHOOSE
-- [ ] Improve inference efficiency by leveraging Rust parallelization
-- [ ] Optional: binding to export developed features to one or more other programming languages
-    - [ ] First language - TO CHOOSE
-
-<!-- See the [open issues](https://github.com/othneildrew/Best-README-Template/issues) for a full list of proposed features (and known issues). -->
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTRIBUTING
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
 
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+If you're interested in opening an issue, please be sure to make it:
+
+* _Scoped to a single topic_. One topic per issue.
+* _Specific_. Include as many details as possible. 
+* _Unique_. Do not duplicate existing opened issues: **search for the topic you're interested in before creating any issues**.
+* _Reproducible_. If you're reporting a problem, include the necessary steps to reproduce it.
+
+If you have a suggestion that would make this better, please fork the repo and create a pull request.
+
 Don't forget to give the project a star! Thanks again!
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p> -->
-
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 <!-- LICENSE -->
@@ -190,7 +164,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 
 <!-- CONTACT -->
-## Contact
+## Authors
 
 Claudio Tancredi (s292523):
 - [LinkedIn profile](https://www.linkedin.com/in/claudio-tancredi/) 
@@ -199,8 +173,6 @@ Claudio Tancredi (s292523):
 Francesca Russo (s287935):
 - [LinkedIn profile](https://www.linkedin.com/in/francesca-russo-1a4a2b228/)
 - Email: s287935@studenti.polito.it
-
-Project Link: [https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group01](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group01)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

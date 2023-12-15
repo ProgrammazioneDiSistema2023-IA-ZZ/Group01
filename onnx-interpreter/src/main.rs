@@ -5,8 +5,11 @@ mod ops;
 extern crate protobuf;
 
 use std::collections::HashMap;
-use ndarray::ArrayD;
+use ndarray::{ArrayD, Axis};
 use std::env;
+use std::time::Instant;
+use colored::Colorize;
+use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::auxiliary_functions::{
@@ -44,7 +47,7 @@ fn main() {
 
  */
 
-    let mut initialiazers: HashMap<String, ArrayD<f32>> = HashMap::new();
+    let mut initialiazers: IndexMap<String, ArrayD<f32>> = IndexMap::new();
     initialiazers = read_initialiazers(&model.graph.initializer);
 
     let mut model_read = model_proto_to_struct(&model, &mut initialiazers);
@@ -53,14 +56,14 @@ fn main() {
         println!("{}", node.to_string());
         println!();
     }*/
-    println!("The total number of nodes is {}", model_read.len());
 
-    display_model_info(chosen_model, version);
+    display_model_info(chosen_model, version, model_read.len());
 
-    let mut inputs: HashMap<String, ArrayD<f32>> = HashMap::new();
+    let mut inputs: IndexMap<String, ArrayD<f32>> = IndexMap::new();
 
     let (input_image, input_name) = load_data(&data_path).unwrap();
-    inputs.insert(input_name, input_image);
+
+    inputs.insert(input_name, input_image);//ndarray::stack(Axis(0), &[input_image.clone().index_axis_move(Axis(0), 0).view(), input_image.clone().index_axis_move(Axis(0), 0).view()]).unwrap());
 
 
     let final_layer_name = &model.graph.output[0].name;
@@ -79,11 +82,29 @@ fn main() {
     let sorted_node_names = topological_sort(dependencies);*/
 
     // Execute nodes in sorted order
+
+    let bar = ProgressBar::new(model_read.len() as u64);
+    bar.set_style(
+        ProgressStyle::default_bar()
+            .template("\n{bar:60.green/white} {percent}% [{pos}/{len} nodes]")
+            .unwrap()
+            .progress_chars("█▁"),
+    );
+    let start = Instant::now();
     for node in model_read.iter_mut() {
-            println!("{}", node.to_string(&verbose));
+            bar.println(format!("🚀 Running node: {} {}", node.get_op_type().bold(), node.get_node_name().bold()));
             let output = node.execute(&inputs).unwrap();
-            inputs.insert(node.get_output_name(), output.clone());
+            if verbose{
+                bar.println(node.to_string(&inputs, &output));
+            }
+            for (i, out) in output.iter().enumerate(){
+                inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
+            }
+            bar.inc(1);
     }
+    bar.finish();
+    let run_time = start.elapsed();
+    println!("\n✅  The network has been successfully executed in {:?}\n", run_time);
 
     let final_output = inputs.get(final_layer_name).unwrap();
     println!("Final output: {:?}", final_output);
@@ -94,6 +115,12 @@ fn main() {
     let predictions = load_predictions(&output_path).unwrap();
     let final_predictions = argmax_per_row(&predictions);
     println!("Predictions: {:?}", &final_predictions);
+
+    /*let sub = final_output - &predictions;
+    for elem in sub.iter() {
+        print!("{:?}, ", elem);
+    }
+    println!(); // New line at the end*/
     /*
             let error_rate = compute_error_rate(&final_result, &final_predictions).unwrap();
             println!("Error rate: {}", error_rate);

@@ -1,6 +1,7 @@
 use super::op_operator::Operator;
 use ndarray::{ArrayD, s, IxDyn};
 use std::collections::HashMap;
+use indexmap::IndexMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 #[derive(PartialEq)]
@@ -12,6 +13,7 @@ pub enum AutoPad {
 }
 
 pub struct Conv {
+    op_type: String,
     node_name: String,
     input_name: String,
     output_name: String,
@@ -21,30 +23,26 @@ pub struct Conv {
     pads: Option<Vec<usize>>,
     group: usize,
     dilations: Option<Vec<usize>>,
-    kernel_weights: ArrayD<f32>,
-    bias: Option<ArrayD<f32>>,
+    initializers: IndexMap<String, ArrayD<f32>>,
 }
 
 impl Conv {
-    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+        let op_type = node.op_type.to_owned();
         let node_name = node.name.to_owned();
         let output_name = node.output[0].to_owned();
 
         let mut input_name = node.input[0].to_owned();
         let mut kernel_name = node.input[1].to_owned();
 
-        let kernel_weights = initializers.remove(kernel_name.as_str()).unwrap();
+        let mut hm = IndexMap::new();
+        hm.insert(kernel_name.clone(), initializers.remove(kernel_name.as_str()).unwrap().to_owned());
 
         let mut bias_name = None;
         if node.input.len() == 3{
             bias_name = Some(node.input[2].to_owned());
+            hm.insert(bias_name.clone().unwrap(), initializers.remove(bias_name.unwrap().as_str()).unwrap().to_owned());
         }
-
-        let mut bias = None;
-        if let Some (b_name) = bias_name{
-            bias = initializers.remove(b_name.as_str());
-        }
-
 
         let mut kernel_shape = None;
         let mut strides = None;
@@ -79,6 +77,7 @@ impl Conv {
 
 
         Conv {
+            op_type,
             node_name,
             input_name,
             output_name,
@@ -88,8 +87,7 @@ impl Conv {
             pads,
             group,
             dilations,
-            kernel_weights,
-            bias,
+            initializers: hm
         }
     }
 }
@@ -97,7 +95,7 @@ fn dot_product(a: &Vec<f32>, b: &Vec<f32>) -> f32 {
     a.iter().zip(b.iter()).map(|(&x, &y)| x * y).sum()
 }
 impl Operator for Conv{
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<ArrayD<f32>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
 
         // 1. Retrieve input tensors X and W, and optionally B.
         // 2. Apply padding according to `auto_pad` or `pads`.
@@ -107,8 +105,11 @@ impl Operator for Conv{
 
         let input_name = &self.input_name;
         let x = inputs.get(input_name).ok_or("Input not found")?;
-        let mut w = &self.kernel_weights;
-        let b = self.bias.as_ref();
+        let mut w = self.initializers.iter().collect::<Vec<_>>()[0].1;
+        let mut b_init=None ;
+        if self.initializers.iter().collect::<Vec<_>>().len()>1{
+            b_init = Some(self.initializers.iter().collect::<Vec<_>>()[1].1);
+        }
 
 
         let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.shape()[2]*x.shape()[3]]);//vec![0; x.ndim() - 2]
@@ -131,28 +132,52 @@ impl Operator for Conv{
             ));
         }
 
-        //todo righe 18-65
-        /*
-            if self.group>1{
-                let td = 0;
-                let mg = w.shape()[0]/self.group;
-                let dw = w.shape()[1];
+        //todo righe 28-75
 
-                //Iterate over the batch
-                for b in 0..x.shape()[0]{
-                    for g in 0..self.group{
-                        let gx = x.slice(s![b..b+1, g*dw..(g+1)*dw, .., ..]);
-                        let gw = w.slice(s![g*mg..(g+1)*mg, .., ..]);
-                        //x: , w: , bias: , auto_pad: , dilations: , kernel_shape: , pads: , strides:
-                        let cv = Conv::execute_conv(gx, gw, None, self.auto_pad, dilations, kernel_shape, pads, strides);
+        /*if self.group>1{
+            let mut res = vec![];
+            let mut td = 0;
+            let mg = w.shape()[0]/self.group;
+            let dw = w.shape()[1];
+
+            //Iterate over the batch
+            for b in 0..x.shape()[0]{
+                for g in 0..self.group{
+                    let gx = x.slice(s![b..b+1, g*dw..(g+1)*dw, .., ..]);
+                    let gw = w.slice(s![g*mg..(g+1)*mg, .., .., ..]);
+                    //x: , w: , bias: , auto_pad: , dilations: , kernel_shape: , pads: , strides:
+                    let cv = Conv::execute_conv(gx, gw, None, self.auto_pad, dilations, 1, kernel_shape, pads, strides);
+                    if b==0 {
+                        td += cv.shape[1];
                     }
+                    res.push((b, cv))
                 }
-
             }
+            let mut new_shape = vec![x.shape()[0], res[0][1].shape().iter().collect::<Vec<_>>()[1..]];
+            new_shape[1] = td;
+            let mut result : ArrayD<f32> = ArrayD::zeros(IxDyn(&new_shape));
+            let mut p= 0;
+            for (b, cv) in res{
+                result[b..b+1, p..p+cv.shape()[1], .., ..] = cv;
+                p+=cv.shape()[1];
+                if p >= result.shape()[1]{
+                    p=0;
+                }
+            }
+            if b_init.is_some(){
+                for (i, s) in result.shape().iter().enumerate(){
+                    new_shape[i]=1;
+                    new_shape[1] = b_init.unwrap().shape()[0];
+                    let tmp = b_init.unwrap().reshape(IxDyn(&new_shape));
+                    result+=tmp;
+                }
+            }
+            return Ok(vec![result]);
+        }*/
 
-         */
 
-        //righe 67-83. Check if we to dilatate the image, todo change the weights in case we apply dilation
+
+        //righe 77-93. Check if we to dilatate the image, todo change the weights in case we apply dilation
         if dilations[0] != 1 || dilations.iter().min() != dilations.iter().max() {
             // Compute the dilated kernel
             let nd = dilations.len();
@@ -235,12 +260,12 @@ impl Operator for Conv{
             let (bh, bw) = (-h0, -w0);
             let (eh, ew) = (h_out as i32 * sth as i32, w_out as i32 * stw as i32);
 
-            res = ArrayD::<f32>::zeros(vec![sN, self.kernel_weights.shape()[0], h_out, w_out]);
+            res = ArrayD::<f32>::zeros(vec![sN, self.initializers.iter().collect::<Vec<_>>()[0].1.shape()[0], h_out, w_out]);
             //println!("Res shape: {:?}", res.shape());
 
-            if let Some(b) = &self.bias {
-                let bias_shape = [1, b.shape()[0], 1, 1];
-                let broadcasted_bias = b.view().into_shape(IxDyn(&bias_shape))
+            if self.initializers.iter().collect::<Vec<_>>().len()>1{
+                let bias_shape = [1, self.initializers.iter().collect::<Vec<_>>()[1].1.shape()[0], 1, 1];
+                let broadcasted_bias = self.initializers.iter().collect::<Vec<_>>()[1].1.view().into_shape(IxDyn(&bias_shape))
                     .or(Err("Bias cannot be broadcast to the result tensor shape"))?;
 
                 // Add the bias to the result tensor
@@ -248,10 +273,10 @@ impl Operator for Conv{
             }
 
             for n in 0..sN {
-                for nw in 0..self.kernel_weights.shape()[0] {
+                for nw in 0..self.initializers.iter().collect::<Vec<_>>()[0].1.shape()[0] {
                     for c in 0..sC {
 
-                        let w_slice = self.kernel_weights.slice(s![nw..nw+1, c..c+1, .., ..]);
+                        let w_slice = self.initializers.iter().collect::<Vec<_>>()[0].1.slice(s![nw..nw+1, c..c+1, .., ..]);
                         for io in (bh..eh).step_by(sth as usize) {
                             let hr = (io - bh) / sth as i32;
                             if hr as usize >= h_out {
@@ -310,24 +335,29 @@ impl Operator for Conv{
             }
         }
 
-        Ok(res)
-    }
-
-
-    fn to_string(&self, verbose: &bool) -> String {
-        match verbose{
-            true => format!(""),
-            false => format!("🚀 Running node: {}", self.node_name)
-        }
-        /*format!("Node name: {}\nInput name: {}\nOutput name: {}",
-                self.node_name, self.input_name, self.output_name)*/
+        Ok(vec![res])
     }
 
     fn get_inputs(&self) -> Vec<String> {
         vec![self.input_name.clone()]
     }
 
-    fn get_output_name(&self) -> String {
-        self.output_name.clone()
+    fn get_output_names(&self) -> Vec<String> {
+        vec![self.output_name.clone()]
+    }
+
+    fn get_node_name(&self) -> String {
+        self.node_name.clone()
+    }
+
+    fn get_op_type(&self) -> String {
+        self.op_type.clone()
+    }
+
+    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
+        self.initializers.iter().map(|v| {
+            (v.0.to_owned(), v.1.to_owned())
+        }
+        ).collect::<Vec<_>>()
     }
 }

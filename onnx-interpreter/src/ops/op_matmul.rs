@@ -1,20 +1,24 @@
 use super::op_operator::Operator;
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
+use indexmap::IndexMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 pub struct MatMul {
+    op_type: String,
     node_name: String,
     inputs_name: Vec<String>,
     output_name: String,
 }
 
 impl MatMul {
-    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+        let op_type = node.op_type.to_owned();
         let inputs_name:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
         let output_name = node.output[0].to_owned();
         let node_name = node.name.to_owned();
         Self {
+            op_type,
             node_name,
             inputs_name,
             output_name,
@@ -23,7 +27,7 @@ impl MatMul {
 }
 
 impl Operator for MatMul {
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<ArrayD<f32>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
         let input_name1 = self.inputs_name[0].clone();
         let input_name2 = self.inputs_name[1].clone();
 
@@ -43,28 +47,26 @@ impl Operator for MatMul {
         }
 
         let y = input1_2d.dot(&input2_2d);
-        Ok(y.into_dyn())
-    }
-
-    fn to_string(&self, verbose: &bool) -> String {
-        match verbose{
-            true => format!(""),
-            false => format!("🚀 Running node: {}", self.node_name)
-        }
-        /*format!(
-            "Node name: {}\nInputs name: {} {}\nOutput names: {}",
-            self.node_name,
-            self.inputs_name[0],
-            self.inputs_name[1],
-            self.output_name
-        )*/
+        Ok(vec![y.into_dyn()])
     }
 
     fn get_inputs(&self) -> Vec<String> {
         self.inputs_name.clone()
     }
 
-    fn get_output_name(&self) -> String {
-        self.output_name.clone()
+    fn get_output_names(&self) -> Vec<String> {
+        vec![self.output_name.clone()]
+    }
+
+    fn get_node_name(&self) -> String {
+        self.node_name.clone()
+    }
+
+    fn get_op_type(&self) -> String {
+        self.op_type.clone()
+    }
+
+    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
+        vec![]
     }
 }
