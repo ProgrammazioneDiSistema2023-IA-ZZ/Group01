@@ -1,3 +1,6 @@
+//use super::super::errors;
+use crate::errors::OnnxError;
+
 use ndarray::ArrayD;
 use std::collections::HashMap;
 use prettytable::{format, row, Table};
@@ -5,7 +8,7 @@ use colored::Colorize;
 use indexmap::IndexMap;
 
 pub trait Operator {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String>;
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError>;
     fn to_string(&self, inputs: &IndexMap<String, ArrayD<f32>>, outputs: &Vec<ArrayD<f32>>) -> String{
         let mut table = Table::new();
         table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);

@@ -121,6 +121,12 @@ _Below is an example of how you can instruct your audience on installing and set
    ```sh
    npm install
 
+
+### :warning: Attention to spaces in project path
+Depending on the Rust toolchain you decide to use, please be aware that you may experience build-time errors caused by spaces in the project path.
+
+To avoid any build issues, it's recommended to clone or place the project in a directory without spaces in its path.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 

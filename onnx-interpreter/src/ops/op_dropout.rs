@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::{Array, ArrayD, Axis, concatenate, IxDyn};
 use std::collections::HashMap;
@@ -6,7 +8,7 @@ use indexmap::IndexMap;
 use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::Uniform;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
-use ndarray_rand::rand::{SeedableRng};
+use ndarray_rand::rand::{SeedableRng, Rng, thread_rng};
 use ndarray_rand::rand::prelude::StdRng;
 
 pub struct Dropout {
@@ -15,8 +17,7 @@ pub struct Dropout {
     input_name: String,
     output_names: Vec<String>,
     ratio: f32,
-    training_mode: i64,
-    seed: i64
+    seed: Option<i64>
 }
 
 impl Dropout {
@@ -33,15 +34,11 @@ impl Dropout {
             Some(x) => x.f,
             None => 0.5
         };
-        let opt_training_mode = node.attribute.iter().find(|attr| attr.name == "training_mode");
-        let training_mode = match opt_training_mode{
-            Some(x) => x.i,
-            None => 0
-        };
+
         let opt_seed = node.attribute.iter().find(|attr| attr.name == "seed");
         let seed = match opt_seed{
-            Some(x) => x.i,
-            None => 0
+            Some(x) => Some(x.i),
+            None => None
         };
 
         Self {
@@ -50,24 +47,29 @@ impl Dropout {
             input_name,
             output_names,
             ratio,
-            training_mode,
             seed
         }
     }
 }
 
 impl Operator for Dropout {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
-        let x = inputs.get(&self.input_name).ok_or("Input tensor X not found")?;
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+        let x = inputs.get(&self.input_name)
+            .ok_or_else(||
+                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
         let return_mask = self.output_names.len()==2;
-        if self.ratio == 0.0 || !self.training_mode==1{
+        if self.ratio == 0.0 {
             if return_mask{
                 return Ok(vec![x.to_owned(), ArrayD::ones(IxDyn(x.shape()))])
             }
             return Ok(vec![x.to_owned()])
         }
         let scale = 1.0/(1.0-self.ratio);
-        let mut rng = StdRng::seed_from_u64(self.seed as u64);
+        let seed = self.seed.unwrap_or_else(|| {
+            let mut rng = thread_rng();
+            rng.gen()
+        });
+        let mut rng = StdRng::seed_from_u64(seed as u64);
         let mask: ArrayD<f32> = Array::random_using(x.raw_dim(), Uniform::new(0.0, 1.0), &mut rng);
 
         let mask_binary = mask.mapv(|a| if a >= self.ratio { 1.0 } else { 0.0 });

@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::ArrayD;
 use std::collections::HashMap;
@@ -30,7 +32,7 @@ impl ReLU {
 }
 
 impl Operator for ReLU {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_name = self.input_name.clone();
         let input = inputs.get(input_name.as_str()).unwrap();
 

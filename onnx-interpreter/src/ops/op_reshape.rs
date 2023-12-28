@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
@@ -64,10 +66,12 @@ impl Reshape {
 }
 
 impl Operator for Reshape {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input = match &self.data_initializer{
             Some(v) => v.iter().collect::<Vec<_>>()[0].1,
-            None => inputs.get(&self.input_name.clone().unwrap()).expect("Input not found in the hashmap")
+            None => inputs.get(&self.input_name.clone().unwrap())
+                .ok_or_else(||
+                    OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap()
         };
 
         let mut target_shape = self.shape_initializer.iter().collect::<Vec<_>>()[0].1.clone();
@@ -79,7 +83,7 @@ impl Operator for Reshape {
         for (i, dim) in target_shape.iter_mut().enumerate(){
             if *dim == -1 {
                 if dim_to_infer.is_some(){
-                    return Err("Too much dimensions to infer.".to_string());
+                    return Err(OnnxError::ShapeMismatch("Too much dimensions to infer".to_string()));
                 }
                 dim_to_infer = Some(i);
             } else if *dim == 0{
@@ -94,7 +98,7 @@ impl Operator for Reshape {
             let product_of_dimensions: isize = target_shape.iter().filter(|&&dim| dim != -1).product();
 
             if input.len() as isize % product_of_dimensions != 0 {
-                return Err("Cannot infer shape due to incompatible dimensions".to_string());
+                return Err(OnnxError::ShapeMismatch("Cannot infer shape due to incompatible dimensions".to_string()));
             }
 
             target_shape[i] = (input.len() as isize) / product_of_dimensions;
@@ -104,7 +108,7 @@ impl Operator for Reshape {
         let input_size = input.len();
 
         if shape_size != input_size as isize {
-            return Err("Dimension is not correct for the number of data.".to_string());
+            return Err(OnnxError::ShapeMismatch("Dimension is not correct for the number of data".to_string()));
         }
 
         // Convert isize dimensions to usize for reshape

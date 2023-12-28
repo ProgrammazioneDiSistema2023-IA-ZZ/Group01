@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::{ArrayD, Axis, concatenate, IxDyn};
 use std::collections::HashMap;
@@ -26,7 +28,7 @@ impl Concat {
         let opt_axis = node.attribute.iter().find(|attr| attr.name == "axis");
         let axis = match opt_axis{
             Some(x) => x.i,
-            None => 0
+            None => 1
         };
 
         Self {
@@ -41,18 +43,32 @@ impl Concat {
 
 impl Operator for Concat {
 
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let mut v = vec![];
-        for inp in &self.inputs_names{
-            let mut t = inputs.get(inp).ok_or("Tensor not found")?;
-            if t.ndim()==0{
-                return Err("Concat: one input has an empty shape".to_string());
+
+        let mut input_vec = vec![];
+        for inp in &self.inputs_names {
+            let mut t = inputs.get(inp)
+                .ok_or_else(||
+                    OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
+            if t.ndim() == 0 {
+                return Err(OnnxError::ShapeMismatch("Concat: one input has an empty shape".to_string()));
             }
-            if self.axis as usize>= t.ndim(){
-                let mut new_shape = Vec::with_capacity(self.axis as usize + 1);
+            input_vec.push(t);
+        }
+
+        let dims = input_vec[0].ndim();
+        let axis = if self.axis<0 { self.axis as usize + dims }  else { self.axis as usize };
+
+        for t in input_vec{
+            if axis >= t.ndim(){
+                let mut new_shape = Vec::with_capacity(axis as usize + 1);
                 new_shape.extend_from_slice(t.shape());
-                new_shape.resize(self.axis as usize +1, 1);
-                v.push(t.view().into_shape(IxDyn(&new_shape)).expect("Failed to reshape array").to_owned());
+                new_shape.resize(axis + 1, 1);
+                v.push(t.view().into_shape(IxDyn(&new_shape))
+                    .or_else(|_|
+                        Err(OnnxError::TensorNotFound("Failed to reshape the tensor".to_string())))
+                    .unwrap().to_owned());
             }
             else{
                 v.push(t.to_owned());
@@ -60,7 +76,7 @@ impl Operator for Concat {
         }
         let views = v.iter().map(|t| t.view()).collect::<Vec<_>>();
 
-        let result = concatenate(Axis(self.axis as usize), &views).unwrap();
+        let result = concatenate(Axis(axis), &views).unwrap();
         Ok(vec![result])
     }
 

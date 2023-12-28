@@ -1,10 +1,11 @@
 use super::op_operator::Operator;
-use ndarray::{ArrayD, s, IxDyn};
+use ndarray::{ArrayD, s, IxDyn, ShapeBuilder, Dimension};
 use std::collections::HashMap;
 use indexmap::IndexMap;
+use crate::errors::OnnxError;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum AutoPad {
     SAME_LOWER,
     SAME_UPPER,
@@ -12,6 +13,7 @@ pub enum AutoPad {
     VALID,
 }
 
+#[derive(Clone)]
 pub struct Conv {
     op_type: String,
     node_name: String,
@@ -90,131 +92,53 @@ impl Conv {
             initializers: hm
         }
     }
-}
-fn dot_product(a: &Vec<f32>, b: &Vec<f32>) -> f32 {
-    a.iter().zip(b.iter()).map(|(&x, &y)| x * y).sum()
-}
-impl Operator for Conv{
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
 
-        // 1. Retrieve input tensors X and W, and optionally B.
-        // 2. Apply padding according to `auto_pad` or `pads`.
-        // 3. Handle dilations and groups.
-        // 4. Perform the convolution operation.
-        // 5. Return the output tensor Y.
+    fn execute_conv(x: ArrayD<f32>, mut w: ArrayD<f32>, b: Option<&ArrayD<f32>>, auto_pad: &Option<AutoPad>, dilations: &Vec<usize>, kernel_shape: &mut Vec<usize>, mut pads: &mut Vec<usize>, strides: &Vec<usize>) -> Result<Vec<ArrayD<f32>>, String> {
 
-        let input_name = &self.input_name;
-        let x = inputs.get(input_name).ok_or("Input not found")?;
-        let mut w = self.initializers.iter().collect::<Vec<_>>()[0].1;
-        let mut b_init=None ;
-        if self.initializers.iter().collect::<Vec<_>>().len()>1{
-            b_init = Some(self.initializers.iter().collect::<Vec<_>>()[1].1);
-        }
-
-
-        let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.shape()[2]*x.shape()[3]]);//vec![0; x.ndim() - 2]
-        let mut kernel_shape = self.kernel_shape.clone().unwrap_or_else(
-            || w.shape()[2..].to_vec());
-        let mut pads = self.pads.clone().unwrap_or_else(|| vec![0; x.shape()[2]*x.shape()[3]].repeat(2));//vec![0; x.ndim() - 2]
-        let strides = self.strides.clone().unwrap_or_else(|| vec![1; x.shape()[2]*x.shape()[3]]);//vec![0; x.ndim() - 2]
 
         let mut res = ArrayD::<f32>::zeros(vec![]);
 
-        // Initial shape checks
-        if x.shape()[1] != w.shape()[1] * self.group || w.shape()[0] % self.group != 0 {
-            return Err(format!(
-                "Shape inconsistencies, X.shape={:?}, W.shape={:?}, group={}, \
-                W should be {:?}.",
-                x.shape(),
-                w.shape(),
-                self.group,
-                (w.shape()[0], x.shape()[1] / self.group, w.shape()[1..].iter().product::<usize>() / x.shape()[1] * self.group)
-            ));
-        }
-
-        //todo righe 28-75
-
-        /*if self.group>1{
-            let mut res = vec![];
-            let mut td = 0;
-            let mg = w.shape()[0]/self.group;
-            let dw = w.shape()[1];
-
-            //Iterate over the batch
-            for b in 0..x.shape()[0]{
-                for g in 0..self.group{
-                    let gx = x.slice(s![b..b+1, g*dw..(g+1)*dw, .., ..]);
-                    let gw = w.slice(s![g*mg..(g+1)*mg, .., .., ..]);
-                    //x: , w: , bias: , auto_pad: , dilations: , kernel_shape: , pads: , strides:
-                    let cv = Conv::execute_conv(gx, gw, None, self.auto_pad, dilations, 1, kernel_shape, pads, strides);
-                    if b==0 {
-                        td += cv.shape[1];
-                    }
-                    res.push((b, cv))
-                }
-            }
-            let mut new_shape = vec![x.shape()[0], res[0][1].shape().iter().collect::<Vec<_>>()[1..]];
-            new_shape[1] = td;
-            let mut result : ArrayD<f32> = ArrayD::zeros(IxDyn(&new_shape));
-            let mut p= 0;
-            for (b, cv) in res{
-                result[b..b+1, p..p+cv.shape()[1], .., ..] = cv;
-                p+=cv.shape()[1];
-                if p >= result.shape()[1]{
-                    p=0;
-                }
-            }
-            if b_init.is_some(){
-                for (i, s) in result.shape().iter().enumerate(){
-                    new_shape[i]=1;
-                    new_shape[1] = b_init.unwrap().shape()[0];
-                    let tmp = b_init.unwrap().reshape(IxDyn(&new_shape));
-                    result+=tmp;
-                }
-            }
-            return Ok(vec![result]);
-        }*/
-
-
-
         //righe 77-93. Check if we to dilatate the image, todo change the weights in case we apply dilation
         if dilations[0] != 1 || dilations.iter().min() != dilations.iter().max() {
-            // Compute the dilated kernel
             let nd = dilations.len();
             let mut new_kernel_shape = Vec::new();
+            let mut new_shape = w.shape().to_vec();
+            new_shape.truncate(new_shape.len() - nd);
 
-            let dilation_h = dilations[0];
-            let dilation_w = dilations[1];
-            let original_shape = w.shape();
-            let new_shape = [
-                original_shape[0] + (original_shape[0] - 1) * (dilation_h - 1),
-                original_shape[1] + (original_shape[1] - 1) * (dilation_w - 1),
-            ];
+            for (i, &d) in dilations.iter().enumerate() {
+                let di = w.ndim() - nd + i;
+                new_shape.push(w.shape()[di] + (w.shape()[di] - 1) * (d - 1));
+                new_kernel_shape.push(kernel_shape[i] + (kernel_shape[i] - 1) * (d - 1));
+            }
 
             let mut new_w = ArrayD::zeros(IxDyn(&new_shape));
 
-            for i in 0..original_shape[0] {
-                for j in 0..original_shape[1] {
-                    if let Some(val) = w.get([i, j]) {
-                        let new_i = i * dilation_h;
-                        let new_j = j * dilation_w;
-                        if let Some(target) = new_w.get_mut([new_i, new_j]) {
-                            *target = *val;
-                        }
+            for idx in w.indexed_iter() {
+                let mut new_idx = Vec::new();
+
+                // Manually push each dimension into the Vec
+                for &dim_size in idx.0.slice() {
+                    new_idx.push(dim_size);
+                }
+                // Extend the new_idx with zeros, the number of zeros is determined by 'nd'
+                new_idx.resize(new_idx.len() + nd, 0);
+
+                for (i, &d) in dilations.iter().enumerate() {
+                    if d > 1 {
+                        new_idx[w.ndim() - nd + i] *= d;
                     }
                 }
+
+                new_w[new_idx.as_slice()] = *idx.1;
             }
 
-            // Update w and kernel_shape
-            w = &new_w;
-            kernel_shape = new_kernel_shape;
+            w = ArrayD::from_shape_vec(IxDyn(&new_w.shape()), new_w.iter().cloned().collect()).unwrap();
+            *kernel_shape = new_kernel_shape;
+
         }
 
-
-
-        //righe 85-99
-        if self.auto_pad.is_some(){
-            pads = match self.auto_pad.as_ref().unwrap() {
+        if auto_pad.is_some(){
+            let new_pads = match auto_pad.as_ref().unwrap() {
                 AutoPad::SAME_LOWER | AutoPad::SAME_UPPER | AutoPad::VALID => {
                     let mut head = Vec::new();
                     let mut tail = Vec::new();
@@ -224,7 +148,7 @@ impl Operator for Conv{
                         let target_size = (d + strides[i] - 1) / strides[i];
                         let pad_needed = (target_size - 1) * strides[i] + kernel_shape[i] - d;
 
-                        let pad_head = match self.auto_pad.as_ref().unwrap() {
+                        let pad_head = match auto_pad.as_ref().unwrap() {
                             AutoPad::SAME_LOWER => (pad_needed + 1) / 2,
                             _ => pad_needed / 2,
                         };
@@ -236,36 +160,32 @@ impl Operator for Conv{
 
                     [head, tail].concat()
                 },
-                _ => self.pads.clone().unwrap_or_else(Vec::new),
+                _ => pads.clone(),
             };
+            pads.clear();
+            pads.extend(new_pads);
         }
 
-
-        //todo righe 101-145, input shape [x,y,z]
-
-        //righe 147-203
         if x.ndim() == 4 {
             let (sN, sC, sH, sW) = (x.shape()[0], x.shape()[1], x.shape()[2], x.shape()[3]);
             let (kh, kw) = (kernel_shape[0], kernel_shape[1]);
             let (sth, stw) = (strides[0], strides[1]);
-            let pads = pads;
 
-            let h_out = ((sH as i32 - kh as i32 + pads[0] as i32 + pads[2] as i32) / sth as i32 + 1) as usize;
-            let w_out = ((sW as i32 - kw as i32 + pads[1] as i32 + pads[3] as i32) / stw as i32 + 1) as usize;
+            let h_out = (((sH as i32 - kh as i32 + pads[0] as i32 + pads[2] as i32) / sth as i32) + 1) as usize;
+            let w_out = (((sW as i32 - kw as i32 + pads[1] as i32 + pads[3] as i32) / stw as i32) + 1) as usize;
 
             let h0 = pads[0] as i32;
             let w0 = pads[1] as i32;
-            let oh = -1 * (kh as i32 % 2) ;
-            let ow = -1 * (kw as i32 % 2) ;
+            let oh = -1 * (kh as i32 % 2);
+            let ow = -1 * (kw as i32 % 2);
             let (bh, bw) = (-h0, -w0);
             let (eh, ew) = (h_out as i32 * sth as i32, w_out as i32 * stw as i32);
 
-            res = ArrayD::<f32>::zeros(vec![sN, self.initializers.iter().collect::<Vec<_>>()[0].1.shape()[0], h_out, w_out]);
-            //println!("Res shape: {:?}", res.shape());
+            res = ArrayD::<f32>::zeros(vec![sN, w.shape()[0], h_out, w_out]);
 
-            if self.initializers.iter().collect::<Vec<_>>().len()>1{
-                let bias_shape = [1, self.initializers.iter().collect::<Vec<_>>()[1].1.shape()[0], 1, 1];
-                let broadcasted_bias = self.initializers.iter().collect::<Vec<_>>()[1].1.view().into_shape(IxDyn(&bias_shape))
+            if b.is_some(){
+                let bias_shape = [1, b.unwrap().len(), 1, 1];
+                let broadcasted_bias = b.unwrap().view().into_shape(IxDyn(&bias_shape))
                     .or(Err("Bias cannot be broadcast to the result tensor shape"))?;
 
                 // Add the bias to the result tensor
@@ -273,11 +193,11 @@ impl Operator for Conv{
             }
 
             for n in 0..sN {
-                for nw in 0..self.initializers.iter().collect::<Vec<_>>()[0].1.shape()[0] {
+                for nw in 0..w.shape()[0] {
                     for c in 0..sC {
 
-                        let w_slice = self.initializers.iter().collect::<Vec<_>>()[0].1.slice(s![nw..nw+1, c..c+1, .., ..]);
-                        for io in (bh..eh).step_by(sth as usize) {
+                        let w_slice = w.slice(s![nw..nw+1, c..c+1, .., ..]);
+                        for io in (bh..eh).step_by(sth) {
                             let hr = (io - bh) / sth as i32;
                             if hr as usize >= h_out {
                                 continue;
@@ -286,7 +206,7 @@ impl Operator for Conv{
                             let ih1 = (i+oh).max(0) as usize;
                             let ih2 = (i + oh +kh as i32).min(sH as i32) as usize;
 
-                            for jo in (bw..ew).step_by(stw as usize) {
+                            for jo in (bw..ew).step_by(stw) {
                                 let wr = (jo - bw) / stw as i32;
                                 if wr as usize >= w_out {
                                     continue;
@@ -317,11 +237,11 @@ impl Operator for Conv{
                                         ));
                                     }
 
-                                    value = dot_product(&img_slice.iter().cloned().collect::<Vec<f32>>(),
-                                                        &w_adjusted.iter().cloned().collect::<Vec<f32>>());
+                                    value = Conv::dot_product(&img_slice.iter().cloned().collect::<Vec<f32>>(),
+                                                        &w_adjusted.iter().cloned().collect::<Vec<f32>>()).unwrap();
                                 } else {
-                                    value = dot_product(&img_slice.iter().cloned().collect::<Vec<f32>>(),
-                                                        &w_slice.iter().cloned().collect::<Vec<f32>>());
+                                    value = Conv::dot_product(&img_slice.iter().cloned().collect::<Vec<f32>>(),
+                                                        &w_slice.iter().cloned().collect::<Vec<f32>>()).unwrap();
                                 }
 
                                 // Update res tensor
@@ -334,8 +254,116 @@ impl Operator for Conv{
                 }
             }
         }
-
         Ok(vec![res])
+    }
+
+    fn dot_product(a: &Vec<f32>, b: &Vec<f32>) -> Result<f32, OnnxError> {
+        if a.len() != b.len() {
+            return Err(OnnxError::ShapeMismatch("Vectors must be of the same length".to_string()));
+        }
+        Ok(a.iter().zip(b.iter()).map(|(&x, &y)| x * y).sum())
+    }
+
+}
+
+impl Operator for Conv{
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+
+        // 1. Retrieve input tensors X and W, and optionally B.
+        // 2. Apply padding according to `auto_pad` or `pads`.
+        // 3. Handle dilations and groups.
+        // 4. Perform the convolution operation.
+        // 5. Return the output tensor Y.
+
+        let input_name = &self.input_name;
+        let x = inputs.get(input_name).ok_or(OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
+        let mut w = self.initializers.iter().collect::<Vec<_>>()[0].1;
+        let mut b_init=None ;
+        if self.initializers.iter().collect::<Vec<_>>().len()>1{
+            b_init = Some(self.initializers.iter().collect::<Vec<_>>()[1].1);
+        }
+
+        if x.ndim()<3{
+            return Err(OnnxError::ShapeMismatch(format!("The input must have at least 3 dimensions but its shape is {:?}", x.shape())));
+        }
+
+        let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.shape()[2]*x.shape()[3]]);//vec![0; x.ndim() - 2]
+        let mut kernel_shape = self.kernel_shape.clone().unwrap_or_else(
+            || w.shape()[2..].to_vec());
+        let mut pads = self.pads.clone().unwrap_or_else(|| vec![0; x.shape()[2]*x.shape()[3]].repeat(2));//vec![0; x.ndim() - 2]
+        let strides = self.strides.clone().unwrap_or_else(|| vec![1; x.shape()[2]*x.shape()[3]]);//vec![0; x.ndim() - 2]
+
+        // Initial shape checks
+        if x.shape()[1] != w.shape()[1] * self.group || w.shape()[0] % self.group != 0 {
+            return Err(OnnxError::ShapeMismatch(format!(
+                "Shape inconsistencies, X.shape={:?}, W.shape={:?}, group={}, \
+                W should be {:?}.",
+                x.shape(),
+                w.shape(),
+                self.group,
+                (w.shape()[0], x.shape()[1] / self.group, w.shape()[1..].iter().product::<usize>() / x.shape()[1] * self.group)
+            )));
+        }
+
+        if self.group>1{
+            let mut res = vec![];
+            let mut td = 0;
+            let mg = w.shape()[0]/self.group;
+            let dw = w.shape()[1];
+
+            //Iterate over the batch
+            for b in 0..x.shape()[0]{
+                for g in 0..self.group{
+                    let gx_view = x.slice(s![b..b+1, g*dw..(g+1)*dw, .., ..]);
+                    let gw_view = w.slice(s![g*mg..(g+1)*mg, .., .., ..]);
+                    // Check if the sliced shapes are correct
+                    if gx_view.shape()[1] != dw || gw_view.shape()[0] != mg {
+                        return Err(OnnxError::ShapeMismatch(
+                            format!("Incorrect shape after slicing for group {}. gx_view.shape={:?}, gw_view.shape={:?}", g, gx_view.shape(), gw_view.shape())));
+                    }
+                    let gx: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gx_view.shape()), gx_view.iter().cloned().collect()).unwrap();
+                    let gw: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gw_view.shape()), gw_view.iter().cloned().collect()).unwrap();
+                    //x: , w: , bias: , auto_pad: , dilations: , kernel_shape: , pads: , strides:
+                    let cv = Conv::execute_conv(gx, gw, None, &self.auto_pad, &dilations, &mut kernel_shape, &mut pads, &strides).unwrap();
+                    if b==0 {
+                        td += cv[0].shape()[1];
+                    }
+                    res.push((b, cv))
+                }
+            }
+            let mut new_shape = vec![x.shape()[0]];
+            new_shape.extend_from_slice(&res[0].1[0].shape()[1..]);
+            new_shape[1] = td;
+            let mut result : ArrayD<f32> = ArrayD::zeros(IxDyn(&new_shape));
+            let mut p= 0;
+            for (b, cv) in res.iter(){
+                let mut slice = result.slice_mut(s![*b..*b+1, p..p+cv[0].shape()[1], .., ..]);
+                slice.assign(&cv[0].view());
+                p+=cv[0].shape()[1];
+                if p >= result.shape()[1]{
+                    p=0;
+                }
+            }
+            if b_init.is_some(){
+                let mut new_shape = vec![1; result.ndim()];
+                new_shape[1] = b_init.unwrap().shape()[0];
+                if let b_value = b_init.unwrap(){
+                    let tmp = b_value.clone().into_shape(IxDyn(&new_shape)).unwrap();
+                    result=result+tmp;
+                }
+            }
+            let expected_output_channels = w.shape()[0];
+            let final_shape = result.shape();
+            if final_shape[1] != expected_output_channels {
+                return Err(OnnxError::ShapeMismatch(format!(
+                    "The number of output channels in the final result does not match the expected number. Expected {}, got {}. Final shape: {:?}",
+                    expected_output_channels, final_shape[1], final_shape
+                )));
+            }
+            return Ok(vec![result]);
+        }
+
+        Ok(Conv::execute_conv(x.clone(), w.clone(), b_init, &self.auto_pad, &dilations, &mut kernel_shape, &mut pads, &strides).unwrap())
     }
 
     fn get_inputs(&self) -> Vec<String> {
@@ -361,3 +389,4 @@ impl Operator for Conv{
         ).collect::<Vec<_>>()
     }
 }
+

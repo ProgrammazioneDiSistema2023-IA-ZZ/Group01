@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::ArrayD;
 use std::collections::HashMap;
@@ -31,10 +33,10 @@ impl Gemm {
             hm.insert(node.input[2].clone(), value.to_owned());
         }
 
-        let mut alpha= f32::default();
-        let mut beta= f32::default();
-        let mut trans_a = i64::default();
-        let mut trans_b = i64::default();
+        let mut alpha= 1.0;
+        let mut beta= 1.0;
+        let mut trans_a = 0;
+        let mut trans_b = 0;
 
         for attribute in &node.attribute{
             match attribute.name.as_str(){
@@ -66,8 +68,10 @@ impl Gemm {
 
 impl Operator for Gemm {
     //Y = alpha * A’ * B’ + beta * C
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
-        let a = inputs.get(&self.input_name).ok_or("Input tensor A not found")?;
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+        let a = inputs.get(&self.input_name)
+            .ok_or_else(||
+                OnnxError::TensorNotFound("Input tensor A not found".to_string())).unwrap();
         let b = self.initializers.iter().collect::<Vec<_>>()[0].1;
         let mut c : Option<&ArrayD<f32>> = None;
         if self.initializers.iter().collect::<Vec<_>>().len()>1{
@@ -80,16 +84,17 @@ impl Operator for Gemm {
 
         //The shape of A should be (M, K) if transA is 0, or (K, M) if transA is non-zero.
         let a_prime_2d = a_prime.into_dimensionality::<ndarray::Ix2>()
-            .map_err(|_| "a_prime is not 2-dimensional".to_string())?;
+            .map_err(|_| OnnxError::ShapeMismatch("a_prime is not 2-dimensional".to_string()))?;
         //Input tensor B. The shape of B should be (K, N) if transB is 0, or (N, K) if transB is non-zero.
         let b_prime_2d = b_prime.into_dimensionality::<ndarray::Ix2>()
-            .map_err(|_| "b_prime is not 2-dimensional".to_string())?;
+            .map_err(|_| OnnxError::ShapeMismatch("b_prime is not 2-dimensional".to_string()))?;
 
         // Check shapes for matrix multiplication
         let (m, k_a) = a_prime_2d.dim();
         let (k_b, n) = b_prime_2d.dim();
         if k_a != k_b {
-            return Err("The inner dimensions of A' and B' do not match".to_string());
+            return Err(OnnxError::ShapeMismatch
+                ("The inner dimensions of A' and B' do not match".to_string()));
         }
 
         // Perform matrix multiplication A' * B'

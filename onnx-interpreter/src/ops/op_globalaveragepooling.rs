@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::{ArrayD, Axis};
 use std::collections::HashMap;
@@ -29,12 +31,16 @@ impl GlobalAveragePool {
 }
 
 impl Operator for GlobalAveragePool {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         // Retrieve the input tensor
-        let input_tensor = inputs.get(&self.input_name).ok_or("Input tensor not found")?;
+        let input_tensor = inputs.get(&self.input_name)
+            .ok_or_else(||
+                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
 
         if input_tensor.ndim() < 3 {
-            return Err("Input tensor must have at least 3 dimensions".to_string());
+            return Err(OnnxError::ShapeMismatch
+                ("Input tensor must have at least 3 dimensions".to_string()));
+
         }
         let axis_to_pool: Vec<_> = (2..input_tensor.ndim()).collect();
 

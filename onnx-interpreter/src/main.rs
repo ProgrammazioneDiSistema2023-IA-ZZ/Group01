@@ -15,9 +15,12 @@ use indicatif::{ProgressBar, ProgressStyle};
 use crate::auxiliary_functions::{
                             load_data, read_initialiazers, load_model, model_proto_to_struct,
                             print_nodes, argmax, load_predictions, argmax_per_row,
-                            compute_error_rate, compute_accuracy, display_model_info };
+                            compute_error_rate, compute_accuracy, display_model_info,
+                            serialize_g_image_to_pb};
 
 mod display;
+pub mod errors;
+
 use display::menu;
 
 
@@ -60,6 +63,9 @@ fn main() {
     display_model_info(chosen_model, version, model_read.len());
 
     let mut inputs: IndexMap<String, ArrayD<f32>> = IndexMap::new();
+
+    // PER MNIST serialize_g_image_to_pb("D:\\PoliTo\\Progetto\\Group01\\onnx-interpreter\\images\\img_2.jpg",
+           //                 "D:\\PoliTo\\Progetto\\Group01\\onnx-interpreter\\models\\mnist-8\\test_data_set_0\\test.pb");
 
     let (input_image, input_name) = load_data(&data_path).unwrap();
 

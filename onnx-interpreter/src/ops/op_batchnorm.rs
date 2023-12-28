@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::ArrayD;
 use std::collections::HashMap;
@@ -57,8 +59,10 @@ impl BatchNorm {
 }
 
 impl Operator for BatchNorm {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
-        let x = inputs.get(&self.input_name).ok_or("Input tensor X not found")?;
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+        let x = inputs.get(&self.input_name)
+            .ok_or_else(||
+                OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
         let scale = self.initializers.iter()
             .filter(|x|x.0.contains("gamma"))
             .collect::<Vec<_>>()[0].1;

@@ -1,6 +1,7 @@
 pub mod auxiliary_functions; // This is correct for a file at the same level as lib.rs
 pub mod parser_code;         // This tells Rust to look for a parser_code/mod.rs file or parser_code.rs
 pub mod ops;                 // This tells Rust to look for an ops/mod.rs file or ops.rs
+pub mod errors;
 
 use pyo3::prelude::*;
 

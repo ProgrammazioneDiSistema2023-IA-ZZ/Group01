@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::ArrayD;
 use std::collections::HashMap;
@@ -41,12 +43,14 @@ impl Add {
 
 impl Operator for Add {
 
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let a = inputs.get(&self.inputs_names[0])
-            .ok_or("First input tensor not found")?;
+            .ok_or_else(||
+                OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
         let b = match &self.initializers{
             Some(hm) => hm.iter().collect::<Vec<_>>()[0].1,
-            None => inputs.get(&self.inputs_names[1]).unwrap()
+            None => inputs.get(&self.inputs_names[1]).ok_or_else(||
+                OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap()
         };
 
         /*inputs.get(&self.inputs_names[1]) {

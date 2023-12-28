@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
@@ -61,14 +63,15 @@ impl MaxPool {
 }
 
 impl Operator for MaxPool {
-    //todo considering also dilations
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_name = &self.input_name;
-        let input = inputs.get(input_name).unwrap();
+        let input = inputs.get(input_name)
+            .ok_or_else(||
+                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
 
         // Validate input tensor dimensions (assuming 4D tensor: [N, C, H, W])
         if input.ndim() != 4 {
-            return Err("Input tensor must be 4D".to_string());
+            return Err(OnnxError::ShapeMismatch("Input tensor must be 4D".to_string()));
         }
 
         let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; input.shape()[2]*input.shape()[3]]);
@@ -76,7 +79,7 @@ impl Operator for MaxPool {
         let mut pads = self.pads.clone().unwrap_or_else(|| vec![0; input.shape()[2]*input.shape()[3]].repeat(2));//vec![0; x.ndim() - 2]
         let strides = self.strides.clone().unwrap_or_else(|| vec![1; input.shape()[2]*input.shape()[3]]);//vec![0; x.ndim() - 2]
 
-        let mut res = ArrayD::<f32>::zeros(vec![]);
+        //let mut res = ArrayD::<f32>::zeros(vec![]);
 
         let n_dims = kernel_shape.len();
         let new_pads: Vec<(i64, i64)> = (0..n_dims)

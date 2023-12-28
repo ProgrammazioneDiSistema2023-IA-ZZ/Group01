@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
@@ -27,23 +29,29 @@ impl MatMul {
 }
 
 impl Operator for MatMul {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_name1 = self.inputs_name[0].clone();
         let input_name2 = self.inputs_name[1].clone();
 
-        let input1 = inputs.get(input_name1.as_str()).unwrap().clone();
-        let input2 = inputs.get(input_name2.as_str()).unwrap().clone();
+        let input1 = inputs.get(input_name1.as_str())
+            .ok_or_else(||
+                OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap().clone();
+        let input2 = inputs.get(input_name2.as_str())
+            .ok_or_else(||
+                OnnxError::TensorNotFound("Second input tensor not found".to_string())).unwrap().clone();
 
         let input1_2d = input1.into_dimensionality::<ndarray::Ix2>()
-            .map_err(|_| "input1 is not 2-dimensional".to_string())?;
+            .map_err(|_| OnnxError::ShapeMismatch("input1 is not 2-dimensional".to_string()))?;
+
         //Input tensor B. The shape of B should be (K, N) if transB is 0, or (N, K) if transB is non-zero.
         let input2_2d = input2.into_dimensionality::<ndarray::Ix2>()
-            .map_err(|_| "input2 is not 2-dimensional".to_string())?;
+            .map_err(|_| OnnxError::ShapeMismatch("input2 is not 2-dimensional".to_string()))?;
 
         let (m, k_a) = input1_2d.dim();
         let (k_b, n) = input2_2d.dim();
         if k_a != k_b {
-            return Err("The inner dimensions of A' and B' do not match".to_string());
+            return Err(OnnxError::ShapeMismatch
+                ("The inner dimensions of A' and B' do not match".to_string()));
         }
 
         let y = input1_2d.dot(&input2_2d);

@@ -1,3 +1,5 @@
+use crate::errors::OnnxError;
+
 use super::op_operator::Operator;
 use ndarray::{ArrayD, Axis, concatenate, IxDyn};
 use std::collections::HashMap;
@@ -10,6 +12,7 @@ pub struct Softmax {
     node_name: String,
     input_name: String,
     output_name: String,
+    axis: i64
 }
 
 impl Softmax {
@@ -19,25 +22,36 @@ impl Softmax {
         let node_name= node.name.to_owned();
         let output_name = node.output[0].to_owned();
 
+        let opt_axis = node.attribute.iter().find(|attr| attr.name == "axis");
+        let axis = match opt_axis{
+            Some(x) => x.i,
+            None => 1
+        };
+
         Self {
             op_type,
             node_name,
             input_name,
             output_name,
+            axis
         }
     }
 }
 
 impl Operator for Softmax {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, String> {
-        let x = inputs.get(&self.input_name).ok_or("Input tensor X not found")?;
-        let max = x.map_axis(Axis(1), |subarr| subarr.iter().cloned().fold(f32::MIN, f32::max));
-        let mut x = x - &max.insert_axis(Axis(1));
+    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+        let x = inputs.get(&self.input_name)
+            .ok_or_else(||
+                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
+
+        let axis = if self.axis<0 { self.axis as usize + x.ndim() }  else { self.axis as usize };
+        let max = x.map_axis(Axis(axis), |subarr| subarr.iter().cloned().fold(f32::MIN, f32::max));
+        let mut x = x - &max.insert_axis(Axis(axis));
 
         x.mapv_inplace(f32::exp);
 
-        let sum = x.map_axis(Axis(1), |subarr| subarr.iter().sum::<f32>());
-        x /= &sum.insert_axis(Axis(1));
+        let sum = x.map_axis(Axis(axis), |subarr| subarr.iter().sum::<f32>());
+        x /= &sum.insert_axis(Axis(axis));
         Ok(vec![x.to_owned()])
     }
 
