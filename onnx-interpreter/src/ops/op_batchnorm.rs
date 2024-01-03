@@ -1,9 +1,8 @@
 use crate::errors::OnnxError;
 
-use super::op_operator::Operator;
+use super::op_operator::{Initializer, Operator};
 use ndarray::ArrayD;
 use std::collections::HashMap;
-use indexmap::IndexMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 pub struct BatchNorm {
@@ -12,10 +11,10 @@ pub struct BatchNorm {
     input_name: String,
     output_name: String,
     epsilon: f32,
-    initializers: IndexMap<String, ArrayD<f32>>,
+    initializers: Vec<Initializer>,
 }
 impl BatchNorm {
-    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let node_name = node.name.to_owned();
         let output_name = node.output[0].to_owned();
@@ -27,21 +26,21 @@ impl BatchNorm {
             None => 1e-5
         };
 
-        let mut hm: IndexMap<String, ArrayD<f32>> = IndexMap::new();
+        let mut initializers_vec = Vec::new();
 
         for inp_name in &node.input{
             match inp_name {
                 _ if inp_name.contains("gamma") =>{
-                    hm.insert(inp_name.to_owned(), initializers.remove(inp_name).unwrap());
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
                 } ,
                 _ if inp_name.contains("beta") => {
-                    hm.insert(inp_name.to_owned(), initializers.remove(inp_name).unwrap());
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
                 },
                 _ if inp_name.contains("mean") =>{
-                    hm.insert(inp_name.to_owned(), initializers.remove(inp_name).unwrap());
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
                 },
                 _ if inp_name.contains("var") =>{
-                    hm.insert(inp_name.to_owned(), initializers.remove(inp_name).unwrap());
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
                 },
                 _ => {  }
             }
@@ -53,28 +52,28 @@ impl BatchNorm {
             input_name,
             output_name,
             epsilon,
-            initializers: hm
+            initializers: initializers_vec
         }
     }
 }
 
 impl Operator for BatchNorm {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let x = inputs.get(&self.input_name)
             .ok_or_else(||
                 OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
         let scale = self.initializers.iter()
-            .filter(|x|x.0.contains("gamma"))
-            .collect::<Vec<_>>()[0].1;
+            .filter(|x|x.get_name().contains("gamma"))
+            .collect::<Vec<_>>()[0].get_value();
         let b = self.initializers.iter()
-            .filter(|x|x.0.contains("beta"))
-            .collect::<Vec<_>>()[0].1;
+            .filter(|x|x.get_name().contains("beta"))
+            .collect::<Vec<_>>()[0].get_value();
         let mean = self.initializers.iter()
-            .filter(|x|x.0.contains("mean"))
-            .collect::<Vec<_>>()[0].1;
+            .filter(|x|x.get_name().contains("mean"))
+            .collect::<Vec<_>>()[0].get_value();
         let var = self.initializers.iter()
-            .filter(|x|x.0.contains("var"))
-            .collect::<Vec<_>>()[0].1;
+            .filter(|x|x.get_name().contains("var"))
+            .collect::<Vec<_>>()[0].get_value();
 
         // Assuming the second dimension is the channel
         let channel_axis = 1;
@@ -108,11 +107,7 @@ impl Operator for BatchNorm {
         self.op_type.clone()
     }
 
-    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
-
-        self.initializers.iter().map(|v| {
-                (v.0.to_owned(), v.1.to_owned())
-            }
-            ).collect::<Vec<_>>()
+    fn get_initializers_arr(&self) -> Vec<Initializer> {
+        self.initializers.clone()
     }
 }

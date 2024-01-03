@@ -5,7 +5,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryInto;
 use std::fs::File;
 use byteorder::{ByteOrder, LittleEndian};
-use indexmap::IndexMap;
 use prettytable::{format, row, Row, Table, Cell, Attr};
 extern crate protobuf;
 use protobuf::{Message};
@@ -269,8 +268,8 @@ pub fn load_predictions(file_path: &String) -> Result<ArrayD<f32>, OnnxError> {
 }
 
 /***********TO CHECK***********/
-pub fn read_initialiazers(model_initializers: &[TensorProto] ) -> IndexMap<String, Array<f32, IxDyn>> {
-    let mut initializer_set: IndexMap<String, Array<f32, IxDyn>> = IndexMap::new();
+pub fn read_initialiazers(model_initializers: &[TensorProto] ) -> HashMap<String, Array<f32, IxDyn>> {
+    let mut initializer_set: HashMap<String, Array<f32, IxDyn>> = HashMap::new();
 
     for initializer in model_initializers {
         // Prepare to hold the data
@@ -362,7 +361,7 @@ pub fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
         .collect()
 }
 
-pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut IndexMap<String, ArrayD<f32>>)
+pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<String, ArrayD<f32>>)
     ->Vec<Box<dyn op_operator::Operator>>{
     let mut model_vec: Vec<Box<dyn op_operator::Operator>> = Vec::new();
 

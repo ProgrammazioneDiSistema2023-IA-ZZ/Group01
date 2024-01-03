@@ -1,7 +1,6 @@
-use super::op_operator::Operator;
+use super::op_operator::{Initializer, Operator};
 use ndarray::{ArrayD, s, IxDyn, ShapeBuilder, Dimension};
 use std::collections::HashMap;
-use indexmap::IndexMap;
 use crate::errors::OnnxError;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
@@ -25,11 +24,11 @@ pub struct Conv {
     pads: Option<Vec<usize>>,
     group: usize,
     dilations: Option<Vec<usize>>,
-    initializers: IndexMap<String, ArrayD<f32>>,
+    initializers: Vec<Initializer>,
 }
 
 impl Conv {
-    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let node_name = node.name.to_owned();
         let output_name = node.output[0].to_owned();
@@ -37,13 +36,13 @@ impl Conv {
         let mut input_name = node.input[0].to_owned();
         let mut kernel_name = node.input[1].to_owned();
 
-        let mut hm = IndexMap::new();
-        hm.insert(kernel_name.clone(), initializers.remove(kernel_name.as_str()).unwrap().to_owned());
+        let mut initializers_vec = Vec::new();
+        initializers_vec.push(Initializer::new(kernel_name.clone(), initializers.remove(kernel_name.as_str()).unwrap().to_owned()));
 
         let mut bias_name = None;
         if node.input.len() == 3{
             bias_name = Some(node.input[2].to_owned());
-            hm.insert(bias_name.clone().unwrap(), initializers.remove(bias_name.unwrap().as_str()).unwrap().to_owned());
+            initializers_vec.push(Initializer::new(bias_name.clone().unwrap(), initializers.remove(bias_name.unwrap().as_str()).unwrap().to_owned()));
         }
 
         let mut kernel_shape = None;
@@ -89,31 +88,33 @@ impl Conv {
             pads,
             group,
             dilations,
-            initializers: hm
+            initializers: initializers_vec
         }
     }
 
-    fn execute_conv(x: ArrayD<f32>, mut w: ArrayD<f32>, b: Option<&ArrayD<f32>>, auto_pad: &Option<AutoPad>, dilations: &Vec<usize>, kernel_shape: &mut Vec<usize>, mut pads: &mut Vec<usize>, strides: &Vec<usize>) -> Result<Vec<ArrayD<f32>>, String> {
+    fn execute_conv(x: ArrayD<f32>, w: ArrayD<f32>, b: Option<&ArrayD<f32>>, auto_pad: &Option<AutoPad>, dilations: &Vec<usize>, kernel_shape: &Vec<usize>, pads: &Vec<usize>, strides: &Vec<usize>) -> Result<Vec<ArrayD<f32>>, String> {
 
+        let mut w_copy = w.clone();
+        let mut kernel_shape_copy = kernel_shape.clone();
+        let mut pads_copy = pads.clone();
 
         let mut res = ArrayD::<f32>::zeros(vec![]);
 
-        //righe 77-93. Check if we to dilatate the image, todo change the weights in case we apply dilation
         if dilations[0] != 1 || dilations.iter().min() != dilations.iter().max() {
             let nd = dilations.len();
             let mut new_kernel_shape = Vec::new();
-            let mut new_shape = w.shape().to_vec();
+            let mut new_shape = w_copy.shape().to_vec();
             new_shape.truncate(new_shape.len() - nd);
 
             for (i, &d) in dilations.iter().enumerate() {
-                let di = w.ndim() - nd + i;
-                new_shape.push(w.shape()[di] + (w.shape()[di] - 1) * (d - 1));
-                new_kernel_shape.push(kernel_shape[i] + (kernel_shape[i] - 1) * (d - 1));
+                let di = w_copy.ndim() - nd + i;
+                new_shape.push(w_copy.shape()[di] + (w_copy.shape()[di] - 1) * (d - 1));
+                new_kernel_shape.push(kernel_shape_copy[i] + (kernel_shape_copy[i] - 1) * (d - 1));
             }
 
             let mut new_w = ArrayD::zeros(IxDyn(&new_shape));
 
-            for idx in w.indexed_iter() {
+            for idx in w_copy.indexed_iter() {
                 let mut new_idx = Vec::new();
 
                 // Manually push each dimension into the Vec
@@ -125,20 +126,20 @@ impl Conv {
 
                 for (i, &d) in dilations.iter().enumerate() {
                     if d > 1 {
-                        new_idx[w.ndim() - nd + i] *= d;
+                        new_idx[w_copy.ndim() - nd + i] *= d;
                     }
                 }
 
                 new_w[new_idx.as_slice()] = *idx.1;
             }
 
-            w = ArrayD::from_shape_vec(IxDyn(&new_w.shape()), new_w.iter().cloned().collect()).unwrap();
-            *kernel_shape = new_kernel_shape;
+            w_copy = ArrayD::from_shape_vec(IxDyn(&new_w.shape()), new_w.iter().cloned().collect()).unwrap();
+            kernel_shape_copy = new_kernel_shape;
 
         }
 
         if auto_pad.is_some(){
-            let new_pads = match auto_pad.as_ref().unwrap() {
+            pads_copy = match auto_pad.as_ref().unwrap() {
                 AutoPad::SAME_LOWER | AutoPad::SAME_UPPER | AutoPad::VALID => {
                     let mut head = Vec::new();
                     let mut tail = Vec::new();
@@ -146,7 +147,7 @@ impl Conv {
                     for i in 0..(x.ndim() - 2) {
                         let d = x.shape()[i];
                         let target_size = (d + strides[i] - 1) / strides[i];
-                        let pad_needed = (target_size - 1) * strides[i] + kernel_shape[i] - d;
+                        let pad_needed = (target_size - 1) * strides[i] + kernel_shape_copy[i] - d;
 
                         let pad_head = match auto_pad.as_ref().unwrap() {
                             AutoPad::SAME_LOWER => (pad_needed + 1) / 2,
@@ -162,26 +163,24 @@ impl Conv {
                 },
                 _ => pads.clone(),
             };
-            pads.clear();
-            pads.extend(new_pads);
         }
 
         if x.ndim() == 4 {
             let (sN, sC, sH, sW) = (x.shape()[0], x.shape()[1], x.shape()[2], x.shape()[3]);
-            let (kh, kw) = (kernel_shape[0], kernel_shape[1]);
+            let (kh, kw) = (kernel_shape_copy[0], kernel_shape_copy[1]);
             let (sth, stw) = (strides[0], strides[1]);
 
-            let h_out = (((sH as i32 - kh as i32 + pads[0] as i32 + pads[2] as i32) / sth as i32) + 1) as usize;
-            let w_out = (((sW as i32 - kw as i32 + pads[1] as i32 + pads[3] as i32) / stw as i32) + 1) as usize;
+            let h_out = (((sH as i32 - kh as i32 + pads_copy[0] as i32 + pads_copy[2] as i32) / sth as i32) + 1) as usize;
+            let w_out = (((sW as i32 - kw as i32 + pads_copy[1] as i32 + pads_copy[3] as i32) / stw as i32) + 1) as usize;
 
-            let h0 = pads[0] as i32;
-            let w0 = pads[1] as i32;
+            let h0 = pads_copy[0] as i32;
+            let w0 = pads_copy[1] as i32;
             let oh = -1 * (kh as i32 % 2);
             let ow = -1 * (kw as i32 % 2);
             let (bh, bw) = (-h0, -w0);
             let (eh, ew) = (h_out as i32 * sth as i32, w_out as i32 * stw as i32);
 
-            res = ArrayD::<f32>::zeros(vec![sN, w.shape()[0], h_out, w_out]);
+            res = ArrayD::<f32>::zeros(vec![sN, w_copy.shape()[0], h_out, w_out]);
 
             if b.is_some(){
                 let bias_shape = [1, b.unwrap().len(), 1, 1];
@@ -193,10 +192,10 @@ impl Conv {
             }
 
             for n in 0..sN {
-                for nw in 0..w.shape()[0] {
+                for nw in 0..w_copy.shape()[0] {
                     for c in 0..sC {
 
-                        let w_slice = w.slice(s![nw..nw+1, c..c+1, .., ..]);
+                        let w_slice = w_copy.slice(s![nw..nw+1, c..c+1, .., ..]);
                         for io in (bh..eh).step_by(sth) {
                             let hr = (io - bh) / sth as i32;
                             if hr as usize >= h_out {
@@ -267,7 +266,7 @@ impl Conv {
 }
 
 impl Operator for Conv{
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
 
         // 1. Retrieve input tensors X and W, and optionally B.
         // 2. Apply padding according to `auto_pad` or `pads`.
@@ -277,10 +276,10 @@ impl Operator for Conv{
 
         let input_name = &self.input_name;
         let x = inputs.get(input_name).ok_or(OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
-        let mut w = self.initializers.iter().collect::<Vec<_>>()[0].1;
+        let mut w = self.initializers[0].get_value();
         let mut b_init=None ;
-        if self.initializers.iter().collect::<Vec<_>>().len()>1{
-            b_init = Some(self.initializers.iter().collect::<Vec<_>>()[1].1);
+        if self.initializers.len()>1{
+            b_init = Some(self.initializers[1].get_value());
         }
 
         if x.ndim()<3{
@@ -324,7 +323,7 @@ impl Operator for Conv{
                     let gx: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gx_view.shape()), gx_view.iter().cloned().collect()).unwrap();
                     let gw: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gw_view.shape()), gw_view.iter().cloned().collect()).unwrap();
                     //x: , w: , bias: , auto_pad: , dilations: , kernel_shape: , pads: , strides:
-                    let cv = Conv::execute_conv(gx, gw, None, &self.auto_pad, &dilations, &mut kernel_shape, &mut pads, &strides).unwrap();
+                    let cv = Conv::execute_conv(gx, gw, None, &self.auto_pad, &dilations, &kernel_shape, &pads, &strides).unwrap();
                     if b==0 {
                         td += cv[0].shape()[1];
                     }
@@ -363,7 +362,7 @@ impl Operator for Conv{
             return Ok(vec![result]);
         }
 
-        Ok(Conv::execute_conv(x.clone(), w.clone(), b_init, &self.auto_pad, &dilations, &mut kernel_shape, &mut pads, &strides).unwrap())
+        Ok(Conv::execute_conv(x.clone(), w.clone(), b_init, &self.auto_pad, &dilations, &kernel_shape, &pads, &strides).unwrap())
     }
 
     fn get_inputs(&self) -> Vec<String> {
@@ -382,11 +381,8 @@ impl Operator for Conv{
         self.op_type.clone()
     }
 
-    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
-        self.initializers.iter().map(|v| {
-            (v.0.to_owned(), v.1.to_owned())
-        }
-        ).collect::<Vec<_>>()
+    fn get_initializers_arr(&self) -> Vec<Initializer> {
+        self.initializers.clone()
     }
 }
 

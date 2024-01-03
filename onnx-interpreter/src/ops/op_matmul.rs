@@ -1,9 +1,8 @@
 use crate::errors::OnnxError;
 
-use super::op_operator::Operator;
+use super::op_operator::{Initializer, Operator};
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
-use indexmap::IndexMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 pub struct MatMul {
@@ -14,7 +13,7 @@ pub struct MatMul {
 }
 
 impl MatMul {
-    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let inputs_name:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
         let output_name = node.output[0].to_owned();
@@ -29,7 +28,7 @@ impl MatMul {
 }
 
 impl Operator for MatMul {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_name1 = self.inputs_name[0].clone();
         let input_name2 = self.inputs_name[1].clone();
 
@@ -74,7 +73,7 @@ impl Operator for MatMul {
         self.op_type.clone()
     }
 
-    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
+    fn get_initializers_arr(&self) -> Vec<Initializer> {
         vec![]
     }
 }

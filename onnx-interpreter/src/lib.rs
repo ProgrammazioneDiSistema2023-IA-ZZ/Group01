@@ -1,28 +1,29 @@
-pub mod auxiliary_functions; // This is correct for a file at the same level as lib.rs
-pub mod parser_code;         // This tells Rust to look for a parser_code/mod.rs file or parser_code.rs
-pub mod ops;                 // This tells Rust to look for an ops/mod.rs file or ops.rs
-pub mod errors;
+mod auxiliary_functions;
+mod parser_code;
+mod ops;
 
-use pyo3::prelude::*;
+extern crate protobuf;
 
 use std::collections::HashMap;
+use ndarray::{ArrayD, Axis};
 use std::env;
 use std::time::Instant;
 use colored::Colorize;
-use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
-use ndarray::ArrayD;
+
 use crate::auxiliary_functions::{
     load_data, read_initialiazers, load_model, model_proto_to_struct,
     print_nodes, argmax, load_predictions, argmax_per_row,
-    compute_error_rate, compute_accuracy, display_model_info };
+    compute_error_rate, compute_accuracy, display_model_info,
+    serialize_g_image_to_pb};
 
 mod display;
+pub mod errors;
+
 use display::menu;
 
 
-#[pyfunction]
-pub fn execute_model () {
+fn main() {
     env::set_var("RUST_BACKTRACE", "1");
 
     let (chosen_model, verbose) = menu();
@@ -48,7 +49,7 @@ pub fn execute_model () {
 
      */
 
-    let mut initialiazers: IndexMap<String, ArrayD<f32>> = IndexMap::new();
+    let mut initialiazers: HashMap<String, ArrayD<f32>> = HashMap::new();
     initialiazers = read_initialiazers(&model.graph.initializer);
 
     let mut model_read = model_proto_to_struct(&model, &mut initialiazers);
@@ -60,7 +61,10 @@ pub fn execute_model () {
 
     display_model_info(chosen_model, version, model_read.len());
 
-    let mut inputs: IndexMap<String, ArrayD<f32>> = IndexMap::new();
+    let mut inputs: HashMap<String, ArrayD<f32>> = HashMap::new();
+
+    // PER MNIST serialize_g_image_to_pb("D:\\PoliTo\\Progetto\\Group01\\onnx-interpreter\\images\\img_2.jpg",
+    //                 "D:\\PoliTo\\Progetto\\Group01\\onnx-interpreter\\models\\mnist-8\\test_data_set_0\\test.pb");
 
     let (input_image, input_name) = load_data(&data_path).unwrap();
 
@@ -132,12 +136,5 @@ pub fn execute_model () {
              */
 }
 
-/// A Python module implemented in Rust. The name of this function must match
-/// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
-/// import the module.
-#[pymodule]
-fn onnxinterpreter(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(execute_model, m)?)?;
 
-    Ok(())
-}
+

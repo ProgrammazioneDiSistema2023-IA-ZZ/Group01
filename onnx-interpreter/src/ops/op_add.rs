@@ -1,10 +1,9 @@
 use crate::errors::OnnxError;
 
-use super::op_operator::Operator;
+use super::op_operator::{Initializer, Operator};
 use ndarray::ArrayD;
 use std::collections::HashMap;
 use std::ops::Index;
-use indexmap::IndexMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 pub struct Add {
@@ -12,19 +11,19 @@ pub struct Add {
     node_name: String,
     inputs_names: Vec<String>,
     output_name: String,
-    initializers: Option<IndexMap<String, ArrayD<f32>>>,
+    initializers: Option<Vec<Initializer>>,
 }
 
 impl Add {
-    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         //let inputs_names:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
         let node_name= node.name.to_owned();
         let output_name = node.output[0].to_owned();
         let initializer_value = initializers.remove(&node.input[1]);
-        let (initializers_map, inputs_names) = match &initializer_value {
+        let (initializers_vec, inputs_names) = match &initializer_value {
             Some(v) => {
-                (Some(IndexMap::from([(node.input[1].to_owned(), initializer_value.unwrap().clone())])), vec![node.input[0].to_owned()])
+                (Some(vec![Initializer::new(node.input[1].to_owned(), v.clone())]), vec![node.input[0].to_owned()])
             },
             None => {
                 (None, vec![node.input[0].to_owned(), node.input[1].to_owned()])
@@ -36,19 +35,19 @@ impl Add {
             node_name,
             inputs_names,
             output_name,
-            initializers: initializers_map,
+            initializers: initializers_vec,
         }
     }
 }
 
 impl Operator for Add {
 
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let a = inputs.get(&self.inputs_names[0])
             .ok_or_else(||
                 OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
         let b = match &self.initializers{
-            Some(hm) => hm.iter().collect::<Vec<_>>()[0].1,
+            Some(v) => v[0].get_value(),
             None => inputs.get(&self.inputs_names[1]).ok_or_else(||
                 OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap()
         };
@@ -79,14 +78,8 @@ impl Operator for Add {
         self.op_type.clone()
     }
 
-    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)>{
-        match &self.initializers{
-            Some(hm) => hm.iter().map(|v| {
-                (v.0.to_owned(), v.1.to_owned())
-            }
-            ).collect::<Vec<_>>(),
-            None => vec![]
-        }
+    fn get_initializers_arr(&self) -> Vec<Initializer>{
+        self.initializers.clone().unwrap_or_else(|| vec![])
     }
 
 

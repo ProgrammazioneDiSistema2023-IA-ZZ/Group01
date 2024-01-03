@@ -1,11 +1,10 @@
 use crate::errors::OnnxError;
 
-use super::op_operator::Operator;
+use super::op_operator::{Initializer, Operator};
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
 use prettytable::{Table, row, format};
 use colored::Colorize;
-use indexmap::IndexMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 pub struct Flatten {
@@ -17,7 +16,7 @@ pub struct Flatten {
 }
 
 impl Flatten {
-    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let node_name = node.name.to_owned();
         let input_name = node.input[0].to_owned();
@@ -32,7 +31,7 @@ impl Flatten {
 }
 
 impl Operator for Flatten {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_tensor = inputs.get(&self.input_name)
             .ok_or_else(||
                 OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
@@ -77,7 +76,7 @@ impl Operator for Flatten {
         self.op_type.clone()
     }
 
-    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
+    fn get_initializers_arr(&self) -> Vec<Initializer> {
         vec![]
     }
 }

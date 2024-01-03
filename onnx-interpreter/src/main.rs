@@ -9,7 +9,6 @@ use ndarray::{ArrayD, Axis};
 use std::env;
 use std::time::Instant;
 use colored::Colorize;
-use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::auxiliary_functions::{
@@ -50,7 +49,7 @@ fn main() {
 
  */
 
-    let mut initialiazers: IndexMap<String, ArrayD<f32>> = IndexMap::new();
+    let mut initialiazers: HashMap<String, ArrayD<f32>> = HashMap::new();
     initialiazers = read_initialiazers(&model.graph.initializer);
 
     let mut model_read = model_proto_to_struct(&model, &mut initialiazers);
@@ -62,7 +61,7 @@ fn main() {
 
     display_model_info(chosen_model, version, model_read.len());
 
-    let mut inputs: IndexMap<String, ArrayD<f32>> = IndexMap::new();
+    let mut inputs: HashMap<String, ArrayD<f32>> = HashMap::new();
 
     // PER MNIST serialize_g_image_to_pb("D:\\PoliTo\\Progetto\\Group01\\onnx-interpreter\\images\\img_2.jpg",
            //                 "D:\\PoliTo\\Progetto\\Group01\\onnx-interpreter\\models\\mnist-8\\test_data_set_0\\test.pb");

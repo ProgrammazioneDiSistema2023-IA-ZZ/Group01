@@ -1,15 +1,9 @@
 use crate::errors::OnnxError;
 
-use super::op_operator::Operator;
+use super::op_operator::{Initializer, Operator};
 use ndarray::{Array, ArrayD, Axis, concatenate, IxDyn};
 use std::collections::HashMap;
-use std::ops::Index;
-use indexmap::IndexMap;
-use ndarray_rand::RandomExt;
-use ndarray_rand::rand_distr::Uniform;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
-use ndarray_rand::rand::{SeedableRng, Rng, thread_rng};
-use ndarray_rand::rand::prelude::StdRng;
 
 pub struct Dropout {
     op_type: String,
@@ -21,7 +15,7 @@ pub struct Dropout {
 }
 
 impl Dropout {
-    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let input_name = node.input[0].to_owned();
         let node_name= node.name.to_owned();
@@ -53,18 +47,17 @@ impl Dropout {
 }
 
 impl Operator for Dropout {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let x = inputs.get(&self.input_name)
             .ok_or_else(||
                 OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
         let return_mask = self.output_names.len()==2;
-        if self.ratio == 0.0 {
-            if return_mask{
-                return Ok(vec![x.to_owned(), ArrayD::ones(IxDyn(x.shape()))])
-            }
-            return Ok(vec![x.to_owned()])
+        if return_mask{
+            return Ok(vec![x.to_owned(), ArrayD::ones(IxDyn(x.shape()))])
         }
-        let scale = 1.0/(1.0-self.ratio);
+        return Ok(vec![x.to_owned()]);
+        //***** THE FOLLOWING CODE IS NOT NEEDED FOR INFERENCE. *****
+        /*let scale = 1.0/(1.0-self.ratio);
         let seed = self.seed.unwrap_or_else(|| {
             let mut rng = thread_rng();
             rng.gen()
@@ -77,7 +70,7 @@ impl Operator for Dropout {
         if return_mask{
             return Ok(vec![result.to_owned(), mask_binary.into_dyn()])
         }
-        return Ok(vec![result.to_owned()])
+        return Ok(vec![result.to_owned()])*/
     }
 
 
@@ -97,7 +90,7 @@ impl Operator for Dropout {
         self.op_type.clone()
     }
 
-    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
+    fn get_initializers_arr(&self) -> Vec<Initializer> {
         vec![]
     }
 }

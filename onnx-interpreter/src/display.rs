@@ -32,7 +32,7 @@ fn clear_screen() {
 pub fn menu() -> (String, bool){
     print_intro();
 
-    let options = &["Run MNIST (opset-version=8) in inference mode", "Run ResNet-18 (v1, \
+    let options = &["Run MNIST (opset-version=12) in inference mode", "Run ResNet-18 (v1, \
         opset-version=7) in inference mode", "Run ResNet-18 (v2, opset-version=7) in inference mode",
         "Run SqueezeNet (v1.0, opset-version=8) in inference mode", "Run MobileNet (v2, opset-version=7) in inference mode",
         "Serialize an image into a .pb file", "Exit"]
@@ -119,9 +119,9 @@ pub fn menu() -> (String, bool){
         }
     }
 
-    let models = vec!["mnist-8", "resnet18-v1-7", "resnet18-v2-7", "squeezenet1.0-8", "mobilenetv2-7"];
+    let models = vec!["mnist-12", "resnet18-v1-7", "resnet18-v2-7", "squeezenet1.0-8", "mobilenetv2-7"];
 
-    let models_names = vec!["MNIST (opset-version=8)", "ResNet-18 (v1, opset-version=7)",
+    let models_names = vec!["MNIST (opset-version=12)", "ResNet-18 (v1, opset-version=7)",
         "ResNet-18 (v2, opset-version=7)", "SqueezeNet (v1.0, opset-version=8)", "MobileNet (v2, opset-version=7)"];
 
     let verbose = match Select::with_theme(&ColorfulTheme::default())

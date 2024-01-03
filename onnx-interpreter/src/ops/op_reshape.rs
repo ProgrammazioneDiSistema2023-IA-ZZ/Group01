@@ -1,12 +1,11 @@
 use crate::errors::OnnxError;
 
-use super::op_operator::Operator;
-use ndarray::{ArrayD, IxDyn};
+use super::op_operator::{Initializer, Operator};
+use ndarray::{Array, ArrayD, IxDyn};
 use std::collections::HashMap;
 use prettytable::{format, row, Table};
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 use colored::Colorize;
-use indexmap::IndexMap;
 
 pub struct Reshape {
     op_type: String,
@@ -14,13 +13,13 @@ pub struct Reshape {
     input_name: Option<String>,
     output_name: String,
     allow_zero: i64,
-    shape_initializer: IndexMap<String, Vec<isize>>,
-    data_initializer: Option<IndexMap<String, ArrayD<f32>>>,
+    shape_initializer: Vec<Initializer>,
+    data_initializer: Option<Vec<Initializer>>,
     flag_reshape_with_no_network_input: bool,
 }
 
 impl Reshape {
-    pub fn new(node: &NodeProto, initializers: &mut IndexMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let node_name = node.name.to_owned();
         let output_name = node.output[0].to_owned();
@@ -32,19 +31,19 @@ impl Reshape {
             None => 0
         };
 
-        let mut shape_initializer = IndexMap::new();
+        let mut shape_initializer = Vec::new();
         let shape : Vec<isize>= initializers.remove(parameter_name.as_str())
             .unwrap().iter().map(|&f| f as isize).collect();
-        shape_initializer.insert(parameter_name, shape.to_owned());
+        shape_initializer.push(Initializer::new(parameter_name, Array::from_shape_vec(IxDyn(&[2,1]), shape.into_iter().map(|x| x as f32).collect()).unwrap()));
 
-        let mut data_initializer: Option<IndexMap<String, ArrayD<f32>>> = None;
+        let mut data_initializer = None;
         let mut input_name = None;
         let mut flag_reshape_with_no_network_input = false;
         match initializers.remove(node.input[0].as_str()){
             Some(v) => {
-                data_initializer = Some(IndexMap::from([
-                    (node.input[0].clone(), v.to_owned())
-                ]));
+                data_initializer = Some(vec![
+                    Initializer::new(node.input[0].clone(), v.to_owned())
+                ]);
                 flag_reshape_with_no_network_input=true;
             },
             None =>{
@@ -66,15 +65,15 @@ impl Reshape {
 }
 
 impl Operator for Reshape {
-    fn execute(&mut self, inputs: &IndexMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input = match &self.data_initializer{
-            Some(v) => v.iter().collect::<Vec<_>>()[0].1,
+            Some(v) => v[0].get_value(),
             None => inputs.get(&self.input_name.clone().unwrap())
                 .ok_or_else(||
                     OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap()
         };
 
-        let mut target_shape = self.shape_initializer.iter().collect::<Vec<_>>()[0].1.clone();
+        let mut target_shape = self.shape_initializer[0].get_value().clone().into_raw_vec().into_iter().map(|x| x as isize).collect::<Vec<_>>();
         if !self.flag_reshape_with_no_network_input{
             target_shape[0] *= input.shape()[0] as isize;
         }
@@ -143,25 +142,15 @@ impl Operator for Reshape {
         self.op_type.clone()
     }
 
-    fn get_initializers_arr(&self) -> Vec<(String, ArrayD<f32>)> {
+    fn get_initializers_arr(&self) -> Vec<Initializer> {
         if self.data_initializer.is_some(){
             [
-                self.data_initializer.clone().unwrap().iter().map(|x|
-                (x.0.clone(), x.1.to_owned())
-            ).collect::<Vec<_>>().as_slice(),
-                self.shape_initializer.iter().map(|x|
-                    (x.0.clone(), ArrayD::from_shape_vec(IxDyn(&vec![x.1.into_iter().map(|x| *x as f32).collect::<Vec<_>>().len()]),
-                                                         x.1.into_iter().map(|x| *x as f32).collect::<Vec<_>>()
-                    ).unwrap().to_owned())
-                ).collect::<Vec<_>>().as_slice()
+                self.data_initializer.clone().unwrap().as_slice(),
+                self.shape_initializer.as_slice()
             ].concat()
         }
         else{
-            self.shape_initializer.iter().map(|x|
-                (x.0.clone(), ArrayD::from_shape_vec(IxDyn(&vec![x.1.into_iter().map(|x| *x as f32).collect::<Vec<_>>().len()]),
-                                                     x.1.into_iter().map(|x| *x as f32).collect::<Vec<_>>()
-                    ).unwrap().to_owned())
-            ).collect::<Vec<_>>()
+            self.shape_initializer.clone()
         }
     }
 }
