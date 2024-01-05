@@ -2,7 +2,7 @@ use std::process;
 use dialoguer::{theme::ColorfulTheme, Select, Input};
 use std::io::{self, Write};
 use std::path::Path;
-use crate::auxiliary_functions::serialize_image_to_pb;
+use crate::utils_images::serialize_image_to_pb;
 
 fn print_intro() {
     let program_name_and_description = "
