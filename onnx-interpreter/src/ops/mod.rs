@@ -9,6 +9,3 @@ pub mod op_matmul;
 pub mod op_maxpool;
 pub mod op_relu;
 pub mod op_reshape;
-pub mod op_concat;
-pub mod op_softmax;
-pub mod op_dropout;

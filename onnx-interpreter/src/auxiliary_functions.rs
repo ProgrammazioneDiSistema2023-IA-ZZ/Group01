@@ -14,11 +14,12 @@ use crate::errors::OnnxError;
 use image::io::Reader as ImageReader;
 use image::{imageops};
 use std::io::Write;
+use std::path::PathBuf;
 
 
-pub fn load_model(file_path: &String) -> ModelProto {
+pub fn load_model(file_path: &PathBuf) -> ModelProto {
     // Load and deserialize your .onnx file here
-    let model_bytes = std::fs::read(file_path).expect("Failed to read .onnx file");
+    let model_bytes = fs::read(file_path).expect("Failed to read .onnx file");
     let mut model = ModelProto::new(); // Create an instance of ModelProto
 
     // Use the parse_from_bytes method to deserialize the model
@@ -48,7 +49,7 @@ pub fn raw_data_to_array(data: &TensorProto, dims: Vec<usize>)->Result<ArrayD<f3
     }
 }
 
-pub fn load_data(file_path: &String) -> Result<(ArrayD<f32>, String), OnnxError> {
+pub fn load_data(file_path: &PathBuf) -> Result<(ArrayD<f32>, String), OnnxError> {
     // Read the file contents into a buffer
     let buffer = fs::read(file_path).map_err(|e| format!("Failed to open the file: {}", e)).unwrap();
     let mut data = TensorProto::new();
@@ -62,20 +63,26 @@ pub fn load_data(file_path: &String) -> Result<(ArrayD<f32>, String), OnnxError>
     let num_elements = dims.iter().product::<usize>();
     let bytes_per_element = 4; // For f32
     let expected_length = num_elements * bytes_per_element;
-    println!("{:?}", &data.float_data);
+    //println!("{:?}", dims);
+    //println!("{:?}", num_elements);
+    //println!("{:?}", &data.float_data);
 
     if data.raw_data.len() != expected_length {
+        //println!("{:?}", data.raw_data.len());
+        //println!("{:?}", expected_length);
         return Err(OnnxError::ShapeMismatch("Data length mismatch.".to_string()));
     }
 
     let data_array = raw_data_to_array(&data, dims).unwrap();
+    //let temp = TensorProto{raw_data: vec![], ..data.clone()};
+    //println!("{:?}", temp);
 
     Ok((data_array, data.name))
 }
 
-pub fn load_predictions(file_path: &String) -> Result<ArrayD<f32>, OnnxError> {
+pub fn load_ground_truth(file_path: &PathBuf) -> Result<ArrayD<f32>, OnnxError> {
     // Read the file contents into a buffer
-    let buffer = std::fs::read(file_path).expect("failed to open the file");
+    let buffer = fs::read(file_path).expect("Failed to open the file");
     let mut data = TensorProto::new();
 
     // Decode the buffer using the generated Rust structs
@@ -244,21 +251,6 @@ pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<S
                         )));
 
                 },
-                "Concat"=>{
-                    model_vec.push(Box::new(op_concat::Concat::new(
-                        node, initializer_set
-                    )))
-                }
-                "Dropout"=>{
-                    model_vec.push(Box::new(op_dropout::Dropout::new(
-                        node, initializer_set
-                    )))
-                }
-                "Softmax"=>{
-                    model_vec.push(Box::new(op_softmax::Softmax::new(
-                        node, initializer_set
-                    )))
-                }
                 _ => {
                     //Insert the error OperationNotImplemented
                     // TODO Handle the case where the initializer is not found, eventually blocking the whole program

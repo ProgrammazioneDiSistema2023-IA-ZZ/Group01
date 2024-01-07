@@ -21,3 +21,6 @@ onnx-interpreter/src/parser_code/
 
 # .DS_Store files
 **/.DS_Store
+
+# *_serialized folder with .pb files obtained via serialization of a custom dataset
+**/*_serialized/

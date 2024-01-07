@@ -286,12 +286,12 @@ impl Operator for Conv{
             return Err(OnnxError::ShapeMismatch(format!("The input must have at least 3 dimensions but its shape is {:?}", x.shape())));
         }
 
-        let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.shape()[2]*x.shape()[3]]);//vec![0; x.ndim() - 2]
+        let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);//vec![0; x.ndim() - 2]
         let mut kernel_shape = self.kernel_shape.clone().unwrap_or_else(
             || w.shape()[2..].to_vec());
-        let mut pads = self.pads.clone().unwrap_or_else(|| vec![0; x.shape()[2]*x.shape()[3]].repeat(2));//vec![0; x.ndim() - 2]
-        let strides = self.strides.clone().unwrap_or_else(|| vec![1; x.shape()[2]*x.shape()[3]]);//vec![0; x.ndim() - 2]
-
+        let mut pads = self.pads.clone().unwrap_or_else(|| vec![0; x.ndim() - 2].repeat(2));//vec![0; x.ndim() - 2]
+        let strides = self.strides.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);//vec![0; x.ndim() - 2]
+        //println!("{:?}", &dilations);
         // Initial shape checks
         if x.shape()[1] != w.shape()[1] * self.group || w.shape()[0] % self.group != 0 {
             return Err(OnnxError::ShapeMismatch(format!(
