@@ -24,6 +24,7 @@ prettytable-rs = "0.10.0"
 colored = "2.1.0"
 ndarray-rand = "0.14.0"
 image = "0.24.7"
+regex = "1.10.2"
 
 
 [dependencies.pyo3]

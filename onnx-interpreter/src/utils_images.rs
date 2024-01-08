@@ -1,17 +1,15 @@
-use std::env::join_paths;
 use std::fs;
 use std::fs::File;
-use ndarray::{Array, Array2, Array3, Array4, Ix, IxDyn, ArrayView2, ArrayD, Axis};
+use ndarray::{Array, Array2, Array3, Array4, ArrayD, Axis};
 
 extern crate protobuf;
 use protobuf::{Message};
-use crate::parser_code::onnx_ml_proto3::{ModelProto, TensorProto};
+use crate::parser_code::onnx_ml_proto3::{TensorProto};
 
 use image::io::Reader as ImageReader;
-use image::{GrayImage, imageops};
+use image::{imageops};
 use std::io::Write;
 use std::path::{PathBuf};
-use dialoguer::Error;
 
 pub fn serialize_images (custom_dataset_path: &PathBuf, custom_dataset_serialized_path: &PathBuf, chosen_model: &String)->Result<(),Box<dyn std::error::Error>>{
     const MNIST: &str = "mnist-12";
@@ -41,7 +39,7 @@ pub fn serialize_images (custom_dataset_path: &PathBuf, custom_dataset_serialize
                         for file_res in files_dir {
                             let file = file_res.unwrap();
                             match file.path().extension().and_then(|ext| ext.to_str()) {
-                                Some("jpg") | Some("png") => {},
+                                Some("jpg") | Some("png") | Some("jpeg")=> {},
                                 _ => continue,
                             }
                             let image_path = file.path();

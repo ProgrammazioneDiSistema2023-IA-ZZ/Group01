@@ -6,10 +6,10 @@ use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 #[derive(PartialEq, Clone)]
 pub enum AutoPad {
-    SAME_LOWER,
-    SAME_UPPER,
-    NOTSET,
-    VALID,
+    SameLower,
+    SameUpper,
+    NotSet,
+    Valid,
 }
 
 #[derive(Clone)]
@@ -62,12 +62,12 @@ impl Conv {
                 "auto_pad" => {
                     auto_pad = Some(match String::from_utf8(attribute.s.clone()) {
                         Ok(value) => match value.as_str() {
-                            "SAME_UPPER" => AutoPad::SAME_UPPER,
-                            "SAME_LOWER" => AutoPad::SAME_LOWER,
-                            "VALID" => AutoPad::VALID,
-                            _ => AutoPad::NOTSET,
+                            "SAME_UPPER" => AutoPad::SameUpper,
+                            "SAME_LOWER" => AutoPad::SameLower,
+                            "VALID" => AutoPad::Valid,
+                            _ => AutoPad::NotSet,
                         },
-                        Err(_) => AutoPad::NOTSET,
+                        Err(_) => AutoPad::NotSet,
                     });
                 }
                 // Handle other attributes like "auto_pad" as needed
@@ -140,7 +140,7 @@ impl Conv {
 
         if auto_pad.is_some(){
             pads_copy = match auto_pad.as_ref().unwrap() {
-                AutoPad::SAME_LOWER | AutoPad::SAME_UPPER | AutoPad::VALID => {
+                AutoPad::SameLower | AutoPad::SameUpper | AutoPad::Valid => {
                     let mut head = Vec::new();
                     let mut tail = Vec::new();
 
@@ -150,7 +150,7 @@ impl Conv {
                         let pad_needed = (target_size - 1) * strides[i] + kernel_shape_copy[i] - d;
 
                         let pad_head = match auto_pad.as_ref().unwrap() {
-                            AutoPad::SAME_LOWER => (pad_needed + 1) / 2,
+                            AutoPad::SameLower => (pad_needed + 1) / 2,
                             _ => pad_needed / 2,
                         };
 
@@ -287,9 +287,9 @@ impl Operator for Conv{
         }
 
         let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);//vec![0; x.ndim() - 2]
-        let mut kernel_shape = self.kernel_shape.clone().unwrap_or_else(
+        let kernel_shape = self.kernel_shape.clone().unwrap_or_else(
             || w.shape()[2..].to_vec());
-        let mut pads = self.pads.clone().unwrap_or_else(|| vec![0; x.ndim() - 2].repeat(2));//vec![0; x.ndim() - 2]
+        let pads = self.pads.clone().unwrap_or_else(|| vec![0; x.ndim() - 2].repeat(2));//vec![0; x.ndim() - 2]
         let strides = self.strides.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);//vec![0; x.ndim() - 2]
         //println!("{:?}", &dilations);
         // Initial shape checks

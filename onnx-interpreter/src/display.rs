@@ -2,7 +2,6 @@ use std::{fs, process};
 use dialoguer::{theme::ColorfulTheme, Select, Input};
 use std::io::{self, Write};
 use std::path::{PathBuf};
-use crate::utils_images::serialize_imagenet_to_pb;
 
 fn print_intro() {
     let program_name_and_description = "
@@ -29,7 +28,7 @@ fn clear_screen() {
 }
 
 
-pub fn menu() -> (String, bool, bool, String, Option<usize>){
+pub fn menu() -> (String, bool, bool, String){
     print_intro();
 
     let models_names = vec!["MNIST (opset-version=12)", "ResNet-18 (v1, opset-version=7)",
@@ -79,27 +78,10 @@ pub fn menu() -> (String, bool, bool, String, Option<usize>){
     println!();
 
     let mut folder_name = String::new();
-    let mut batch_size : Option<usize> = None;
     let mut verbose = false;
 
     match test_dataset{
-        true => {
-            verbose = match Select::with_theme(&ColorfulTheme::default())
-                .with_prompt("Run ".to_string() + models_names[selection] + " in verbose mode?")
-                .items(&["Yes", "No", "Go back to the main menu"])
-                .default(0)
-                .interact()
-                .unwrap()
-            {
-                0 => true,
-                1 => false,
-                2 => {
-                    clear_screen();
-                    return menu();
-                }
-                _ => false,
-            };
-        },
+        true => {},
         false =>{
             folder_name = Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("Provide the folder name for your custom dataset.\n\
@@ -107,10 +89,10 @@ pub fn menu() -> (String, bool, bool, String, Option<usize>){
                 1) the dataset folder must be placed under the folder of the model you want to run (e.g. \"mnist-12/my-dataset/\");\n\
                 2) the dataset folder must include subfolders whose names match the label, in numeric format, of the images they contain;\n\
                 3) at least one subfolder that follows the naming convention mentioned above must reside within the dataset folder;\n\
-                4) accepted image formats are .jpg or .png;\n\
-                5) all subfolders following the expected naming convention must include at least a .jpg or .png file.\n\
+                4) accepted image formats are .jpg, .jpeg or .png;\n\
+                5) all subfolders following the expected naming convention must include at least a .jpg, .jpeg or .png file.\n\
                 For example, you may have a \"my-dataset/\" folder under \"resnet18-v2-7/\" with a \"207/\" subfolder that includes \
-                a .jpg or .png image of a golden retriever, since 207 is the label for a golden retriever in the ImageNet dataset.\
+                a .jpg, .jpeg or .png image of a golden retriever, since 207 is the label for a golden retriever in the ImageNet dataset.\
             \n(type 'BACK' to go back to the main menu)")
                 .interact()
                 .unwrap();
@@ -125,23 +107,23 @@ pub fn menu() -> (String, bool, bool, String, Option<usize>){
 
             if dataset_path.exists() && dataset_path.is_dir(){
                 let mut subfolders_with_numerical_name_counter = 0;
-                let mut subfolders_with_no_jpg_or_png_images_counter = 0;
+                let mut subfolders_with_no_jpg_jpeg_or_png_images_counter = 0;
                 for entry in fs::read_dir(dataset_path.clone()).unwrap(){
                     let path = entry.unwrap().path();
                     if path.is_dir(){
                         let dir_name = path.file_name().unwrap().to_str().unwrap();
                         if !dir_name.parse::<i32>().is_err(){
                             subfolders_with_numerical_name_counter+=1;
-                            let mut jpg_png_flag = false;
+                            let mut jpg_jpeg_png_flag = false;
                             for sub_entry in fs::read_dir(path).unwrap(){
                                 let sub_path = sub_entry.unwrap().path();
                                 match sub_path.extension().and_then(|ext| ext.to_str()) {
-                                    Some("jpg") | Some("png") => jpg_png_flag=true,
+                                    Some("jpg") | Some("png") | Some("jpeg")=> jpg_jpeg_png_flag =true,
                                     _ => {},
                                 }
                             }
-                            if jpg_png_flag==false{
-                                subfolders_with_no_jpg_or_png_images_counter+=1;
+                            if jpg_jpeg_png_flag ==false{
+                                subfolders_with_no_jpg_jpeg_or_png_images_counter +=1;
                             }
                         }
                     }
@@ -158,10 +140,10 @@ pub fn menu() -> (String, bool, bool, String, Option<usize>){
                         _ => {clear_screen(); return menu();}
                     };
                 }
-                if subfolders_with_no_jpg_or_png_images_counter!=0{
+                if subfolders_with_no_jpg_jpeg_or_png_images_counter !=0{
                     match Select::with_theme(&ColorfulTheme::default())
                         .with_prompt("Between the subfolders respecting the numerical naming convention, there is \
-                        at least a subfolder that does not include any .jpg or .png file.")
+                        at least a subfolder that does not include any .jpg, .jpeg or .png file.")
                         .items(&["Go back to the main menu"])
                         .default(0)
                         .interact()
@@ -183,43 +165,24 @@ pub fn menu() -> (String, bool, bool, String, Option<usize>){
                     _ => {clear_screen(); return menu();}
                 };
             }
-
-            batch_size = match Select::with_theme(&ColorfulTheme::default())
-                .with_prompt("The model ". to_string() + models_names[selection] + " can run on images distributed over multiple batches and \
-                benefit from parallelization across batches.\nPlease, select a value for the batch size.")
-                .items(&["1", "2", "4", "Go back to the main menu"])
-                .default(0)
-                .interact()
-                .unwrap()
-            {
-                0 => Some(1usize),
-                1 => Some(2usize),
-                2 => Some(4usize),
-                3 => {
-                clear_screen();
-                return menu();
-            }
-                _ => None,
-            };
-            println!();
-            verbose = match Select::with_theme(&ColorfulTheme::default())
-                .with_prompt("Run ".to_string() + models_names[selection] + " in verbose mode?")
-                .items(&["Yes", "No", "Go back to the main menu"])
-                .default(0)
-                .interact()
-                .unwrap()
-            {
-                0 => true,
-                1 => false,
-                2 => {
-                    clear_screen();
-                    return menu();
-                }
-                _ => false,
-            };
         }
     }
-
-    (models[selection].to_string(), verbose, test_dataset, folder_name, batch_size)
+    verbose = match Select::with_theme(&ColorfulTheme::default())
+        .with_prompt("Run ".to_string() + models_names[selection] + " in verbose mode?")
+        .items(&["Yes", "No", "Go back to the main menu"])
+        .default(0)
+        .interact()
+        .unwrap()
+    {
+        0 => true,
+        1 => false,
+        2 => {
+            clear_screen();
+            return menu();
+        }
+        _ => false,
+    };
+    println!();
+    (models[selection].to_string(), verbose, test_dataset, folder_name)
 
 }

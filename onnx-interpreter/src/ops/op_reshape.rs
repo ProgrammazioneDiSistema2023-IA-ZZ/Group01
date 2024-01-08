@@ -3,9 +3,7 @@ use crate::errors::OnnxError;
 use super::op_operator::{Initializer, Operator};
 use ndarray::{Array, ArrayD, IxDyn};
 use std::collections::HashMap;
-use prettytable::{format, row, Table};
 use crate::parser_code::onnx_ml_proto3::NodeProto;
-use colored::Colorize;
 
 pub struct Reshape {
     op_type: String,
@@ -122,7 +120,7 @@ impl Operator for Reshape {
     }
 
     fn get_inputs(&self) -> Vec<String> {
-        if (self.input_name.is_some()){
+        if self.input_name.is_some(){
             vec![self.input_name.clone().unwrap().clone()]
         }
         else{

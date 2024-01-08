@@ -6,7 +6,7 @@ mod utils_images;
 extern crate protobuf;
 
 use std::collections::HashMap;
-use ndarray::{ArrayD, Axis, IxDyn};
+use ndarray::{ArrayD, IxDyn};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -14,15 +14,13 @@ use std::time::Instant;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use crate::auxiliary_functions::{
-    load_data, read_initialiazers, load_model, model_proto_to_struct,
-    print_nodes, argmax, load_ground_truth, argmax_per_row,
-    compute_error_rate, compute_accuracy, display_model_info};
+use crate::auxiliary_functions::{load_data, read_initialiazers, load_model, model_proto_to_struct, load_ground_truth, argmax_per_row, compute_error_rate, compute_accuracy, display_model_info, print_results};
 
 use crate::utils_images::{ serialize_images };
 
 mod display;
 pub mod errors;
+mod labels_mapping;
 
 use display::menu;
 
@@ -30,9 +28,9 @@ use display::menu;
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
 
-    let (chosen_model, verbose, test_dataset, folder_name, batch_size) = menu();
+    let (chosen_model, verbose, test_dataset, folder_name) = menu();
 
-    let mut model_path = PathBuf::from("models").join(&chosen_model).join("model.onnx");
+    let model_path = PathBuf::from("models").join(&chosen_model).join("model.onnx");
 
     // Load ONNX model
     let model = load_model(&model_path);
@@ -76,10 +74,12 @@ fn main() {
         .join(folder_name + "_serialized");
 
     let mut label_stack;
+    let mut file_paths = vec![];
 
     match test_dataset{
         true=>{
             let (input_image, input_name) = load_data(&test_input_path).unwrap();
+            file_paths.push(test_input_path.to_str().unwrap().to_string());
             label_stack = load_ground_truth(&test_label_path).unwrap();
             inputs.insert(input_name, input_image);
         },
@@ -96,6 +96,7 @@ fn main() {
                         if !(extension=="pb"){
                             continue;
                         }
+                        file_paths.push(file_path.to_str().unwrap().to_string());
                         let label_file_name = filename.clone() + "." + extension;
                         let label_path = custom_dataset_serialized_path.join("labels").join(label_file_name);
                         let (input_image, _) = load_data(&file_path).unwrap();
@@ -173,9 +174,11 @@ fn main() {
     let start = Instant::now();
     for node in model_read.iter_mut() {
             bar.println(format!("🚀 Running node: {} {}", node.get_op_type().bold(), node.get_node_name().bold()));
+            let start_node = Instant::now();
             let output = node.execute(&inputs).unwrap();
+            let run_time_node = start_node.elapsed();
             if verbose{
-                bar.println(node.to_string(&inputs, &output));
+                bar.println(node.to_string(&inputs, &output, &run_time_node));
             }
             for (i, out) in output.iter().enumerate(){
                 inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
@@ -189,30 +192,14 @@ fn main() {
     let final_output = inputs.get(final_layer_name).unwrap();
     //println!("Final output: {:?}", final_output);
     let predictions = argmax_per_row(final_output);
-    println!("Network predictions: {:?}", &predictions);
-    /*
 
-    match test_dataset{
-        true=>{
-            //let ground_truth = load_ground_truth(&test_label_path).unwrap();
-            let ground_truth_labels = argmax_per_row(&ground_truth);
-            println!("Ground truth labels: {:?}", &ground_truth_labels);
-        },
-        false=>{
-            let ground_truth_labels = argmax_per_row(&label_stack);
-            println!("Ground truth labels: {:?}", &ground_truth_labels);
-        }
-    }
-
-     */
     let ground_truth_labels = argmax_per_row(&label_stack);
-    println!("Ground truth labels: {:?}", &ground_truth_labels);
 
     let error_rate = compute_error_rate(&predictions, &ground_truth_labels).unwrap();
-    println!("Error rate: {}", error_rate);
 
     let accuracy = compute_accuracy(&predictions, &ground_truth_labels).unwrap();
-    println!("Accuracy: {}", accuracy);
+
+    print_results(&chosen_model, &file_paths, &predictions, &ground_truth_labels, &error_rate, &accuracy);
     //println!("Final output: {:?}", final_output);
 }
 

@@ -1,9 +1,9 @@
-use ndarray::{Array, Array2, Array3, Array4, Ix, IxDyn, ArrayView2, ArrayD, Axis};
+use ndarray::{Array, Ix, IxDyn, ArrayD, Axis};
 use std::fs;
-use std::iter::FromIterator;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fs::File;
+use std::io::Write;
 use byteorder::{ByteOrder, LittleEndian};
 use prettytable::{format, row, Row, Table, Cell, Attr};
 extern crate protobuf;
@@ -11,10 +11,9 @@ use protobuf::{Message};
 use crate::parser_code::onnx_ml_proto3::{ModelProto, TensorProto};
 use crate::ops::*;
 use crate::errors::OnnxError;
-use image::io::Reader as ImageReader;
-use image::{imageops};
-use std::io::Write;
 use std::path::PathBuf;
+use colored::Colorize;
+use crate::labels_mapping::IMAGENET_CLASSES;
 
 
 pub fn load_model(file_path: &PathBuf) -> ModelProto {
@@ -195,6 +194,117 @@ pub fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
                 .unwrap_or(0) // Default to 0 if the row is empty
         })
         .collect()
+}
+
+pub fn print_results (model: &String, files: &Vec<String>, predictions: &Vec<usize>, ground_truth: &Vec<usize>, error_rate: &f32, accuracy: &f32){
+    let file_name = "results.txt";
+    let max_elements = 50;
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+        table.set_titles(row![
+            "Input file".bold(),
+            "Prediction".bold(),
+            "Predicted label".bold(),
+            "Ground truth".bold(),
+            "Ground truth label".bold()
+        ]);
+    }
+    else{
+        table.set_titles(row![
+            "Input file".bold(),
+            "Prediction".bold(),
+            "Ground truth".bold()
+        ]);
+    }
+    for (i, f) in files.iter().enumerate(){
+        let correct_prediction = predictions[i]== ground_truth[i];
+        let prediction_string = predictions[i].to_string();
+        let gt_string = ground_truth[i].to_string();
+        let (f_style, prediction_style, gt_style) = if correct_prediction {
+            (f.bright_green(), prediction_string.bright_green(), gt_string.bright_green())
+        } else {
+            (f.bright_red(), prediction_string.bright_red(), gt_string.bright_red())
+        };
+        if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+            let predicted_label = IMAGENET_CLASSES[predictions[i]];
+            let ground_truth_label = IMAGENET_CLASSES[ground_truth[i]];
+            let (pl_style, gtl_style) = if correct_prediction {
+                (predicted_label.bright_green(), ground_truth_label.bright_green())
+            } else {
+                (predicted_label.bright_red(), ground_truth_label.bright_red())
+            };
+            table.add_row(row![
+                f_style, prediction_style, pl_style, gt_style, gtl_style
+            ]);
+        }
+        else{
+            table.add_row(row![
+            f_style, prediction_style, gt_style
+        ]);
+        }
+    }
+    if files.len()<=max_elements {
+        println!("Results:\n\n{}", table.to_string());
+    }
+    else{
+        let mut reduced_table = Table::new();
+        reduced_table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+        if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+            reduced_table.set_titles(row![
+            "Input file".bold(),
+            "Prediction".bold(),
+            "Predicted label".bold(),
+            "Ground truth".bold(),
+            "Ground truth label".bold()
+        ]);
+        }
+        else{
+            reduced_table.set_titles(row![
+            "Input file".bold(),
+            "Prediction".bold(),
+            "Ground truth".bold()
+        ]);
+        }
+        for (i, f) in files.iter().take(max_elements).enumerate(){
+            let correct_prediction = predictions[i]== ground_truth[i];
+            let prediction_string = predictions[i].to_string();
+            let gt_string = ground_truth[i].to_string();
+            let (f_style, prediction_style, gt_style) = if correct_prediction {
+                (f.bright_green(), prediction_string.bright_green(), gt_string.bright_green())
+            } else {
+                (f.bright_red(), prediction_string.bright_red(), gt_string.bright_red())
+            };
+            if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+                let predicted_label = IMAGENET_CLASSES[predictions[i]];
+                let ground_truth_label = IMAGENET_CLASSES[ground_truth[i]];
+                let (pl_style, gtl_style) = if correct_prediction {
+                    (predicted_label.bright_green(), ground_truth_label.bright_green())
+                } else {
+                    (predicted_label.bright_red(), ground_truth_label.bright_red())
+                };
+                reduced_table.add_row(row![
+                f_style, prediction_style, pl_style, gt_style, gtl_style
+            ]);
+            }
+            else{
+                reduced_table.add_row(row![
+            f_style, prediction_style, gt_style
+        ]);
+            }
+        }
+        println!("The dataset size is too big for all the results to be printed in the console.\nTo improve \
+        readability, the results have been stored in the file \"{}\".\nHowever, here is a sneak peek to the first {} \
+        results:\n\n{}", &file_name, max_elements, reduced_table.to_string());
+        let mut out = File::create(file_name).unwrap();
+        out.write_all(strip_ansi_codes(table.to_string()).as_bytes()).unwrap();
+    }
+    println!("Error rate: {}\nAccuracy: {}", error_rate, accuracy);
+}
+
+fn strip_ansi_codes(input: String) -> String {
+    let re = regex::Regex::new("\x1B\\[[0-9;]*[a-zA-Z]").unwrap();
+    re.replace_all(input.as_str(), "").to_string()
 }
 
 pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<String, ArrayD<f32>>)

@@ -3,8 +3,6 @@ use crate::errors::OnnxError;
 use super::op_operator::{Initializer, Operator};
 use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
-use prettytable::{Table, row, format};
-use colored::Colorize;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
 
 pub struct Flatten {

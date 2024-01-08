@@ -3,6 +3,7 @@ use crate::errors::OnnxError;
 
 use ndarray::ArrayD;
 use std::collections::HashMap;
+use std::time::Duration;
 use prettytable::{format, row, Table};
 use colored::Colorize;
 
@@ -26,7 +27,7 @@ impl Initializer{
 
 pub trait Operator {
     fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError>;
-    fn to_string(&self, inputs: &HashMap<String, ArrayD<f32>>, outputs: &Vec<ArrayD<f32>>) -> String{
+    fn to_string(&self, inputs: &HashMap<String, ArrayD<f32>>, outputs: &Vec<ArrayD<f32>>, execution_time: &Duration) -> String{
         let mut table = Table::new();
         table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
         table.set_titles(row![
@@ -64,7 +65,7 @@ pub trait Operator {
             shape.bright_green()
         ]);
         }
-        return format!("👌 Done. Node info:\n{}\n", table.to_string());
+        return format!("👌 Done. Node info:\n{}Execution time for the node: {:?}\n\n", table.to_string(), execution_time);
     }
     fn get_inputs(&self) -> Vec<String>;
     fn get_output_names(&self) -> Vec<String>;

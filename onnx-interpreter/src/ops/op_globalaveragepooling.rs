@@ -3,9 +3,7 @@ use crate::errors::OnnxError;
 use super::op_operator::{Initializer, Operator};
 use ndarray::{ArrayD, Axis};
 use std::collections::HashMap;
-use prettytable::{format, row, Table};
 use crate::parser_code::onnx_ml_proto3::NodeProto;
-use colored::Colorize;
 
 pub struct GlobalAveragePool {
     op_type: String,

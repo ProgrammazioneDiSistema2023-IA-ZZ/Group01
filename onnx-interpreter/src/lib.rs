@@ -174,7 +174,7 @@ fn main() {
         bar.println(format!("🚀 Running node: {} {}", node.get_op_type().bold(), node.get_node_name().bold()));
         let output = node.execute(&inputs).unwrap();
         if verbose{
-            bar.println(node.to_string(&inputs, &output));
+            bar.println(node.to_string(&inputs, &output, ));
         }
         for (i, out) in output.iter().enumerate(){
             inputs.insert(node.get_output_names()[i].clone(), out.to_owned());

@@ -4,7 +4,6 @@ use super::op_operator::{Initializer, Operator};
 use ndarray::ArrayD;
 use std::collections::HashMap;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
-use prettytable::{Table, row, format};
 
 
 pub struct ReLU {

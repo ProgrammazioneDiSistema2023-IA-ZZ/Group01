@@ -24,3 +24,6 @@ onnx-interpreter/src/parser_code/
 
 # *_serialized folder with .pb files obtained via serialization of a custom dataset
 **/*_serialized/
+
+# .txt with the results if they are too many to be displayed in the console
+**/results.txt
