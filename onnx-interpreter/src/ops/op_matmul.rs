@@ -28,7 +28,7 @@ impl MatMul {
 }
 
 impl Operator for MatMul {
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_name1 = self.inputs_name[0].clone();
         let input_name2 = self.inputs_name[1].clone();
 

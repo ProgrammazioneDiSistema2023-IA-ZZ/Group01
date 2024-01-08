@@ -28,7 +28,7 @@ impl GlobalAveragePool {
 }
 
 impl Operator for GlobalAveragePool {
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         // Retrieve the input tensor
         let input_tensor = inputs.get(&self.input_name)
             .ok_or_else(||

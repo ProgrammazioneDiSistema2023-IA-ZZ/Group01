@@ -63,7 +63,7 @@ impl Reshape {
 }
 
 impl Operator for Reshape {
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input = match &self.data_initializer{
             Some(v) => v[0].get_value(),
             None => inputs.get(&self.input_name.clone().unwrap())

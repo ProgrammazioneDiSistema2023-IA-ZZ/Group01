@@ -29,7 +29,7 @@ impl Flatten {
 }
 
 impl Operator for Flatten {
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_tensor = inputs.get(&self.input_name)
             .ok_or_else(||
                 OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();

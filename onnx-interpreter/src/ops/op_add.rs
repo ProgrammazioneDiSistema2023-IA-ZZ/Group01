@@ -41,7 +41,7 @@ impl Add {
 
 impl Operator for Add {
 
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let a = inputs.get(&self.inputs_names[0])
             .ok_or_else(||
                 OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();

@@ -62,7 +62,7 @@ impl MaxPool {
 }
 
 impl Operator for MaxPool {
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_name = &self.input_name;
         let input = inputs.get(input_name)
             .ok_or_else(||

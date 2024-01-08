@@ -266,7 +266,7 @@ impl Conv {
 }
 
 impl Operator for Conv{
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
 
         // 1. Retrieve input tensors X and W, and optionally B.
         // 2. Apply padding according to `auto_pad` or `pads`.

@@ -30,7 +30,7 @@ impl ReLU {
 }
 
 impl Operator for ReLU {
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_name = self.input_name.clone();
         let input = inputs.get(input_name.as_str()).unwrap();
 

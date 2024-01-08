@@ -68,7 +68,7 @@ impl Gemm {
 
 impl Operator for Gemm {
     //Y = alpha * A’ * B’ + beta * C
-    fn execute(&mut self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
+    fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let a = inputs.get(&self.input_name)
             .ok_or_else(||
                 OnnxError::TensorNotFound("Input tensor A not found".to_string())).unwrap();
