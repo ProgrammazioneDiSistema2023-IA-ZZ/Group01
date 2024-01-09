@@ -294,12 +294,12 @@ pub fn print_results (model: &String, files: &Vec<String>, predictions: &Vec<usi
             }
         }
         println!("The dataset size is too big for all the results to be printed in the console.\nTo improve \
-        readability, the results have been stored in the file \"{}\".\nHowever, here is a sneak peek to the first {} \
-        results:\n\n{}", &file_name, max_elements, reduced_table.to_string());
+        readability, the results have been stored in the file \"{}\" under the onnx-interpreter folder.\n\
+        However, here is a sneak peek to the first {} results:\n\n{}", &file_name, max_elements, reduced_table.to_string());
         let mut out = File::create(file_name).unwrap();
-        out.write_all(strip_ansi_codes(table.to_string()).as_bytes()).unwrap();
+        out.write_all(strip_ansi_codes(table.to_string()+ &format!("\nError rate: {}\nAccuracy: {}", error_rate, accuracy)).as_bytes()).unwrap();
     }
-    println!("Error rate: {}\nAccuracy: {}", error_rate, accuracy);
+    println!("Error rate: {}\nAccuracy: {}\n", error_rate, accuracy);
 }
 
 fn strip_ansi_codes(input: String) -> String {

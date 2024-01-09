@@ -46,8 +46,8 @@ impl Operator for MatMul {
         let input2_2d = input2.into_dimensionality::<ndarray::Ix2>()
             .map_err(|_| OnnxError::ShapeMismatch("input2 is not 2-dimensional".to_string()))?;
 
-        let (m, k_a) = input1_2d.dim();
-        let (k_b, n) = input2_2d.dim();
+        let (_, k_a) = input1_2d.dim();
+        let (k_b, _) = input2_2d.dim();
         if k_a != k_b {
             return Err(OnnxError::ShapeMismatch
                 ("The inner dimensions of A' and B' do not match".to_string()));

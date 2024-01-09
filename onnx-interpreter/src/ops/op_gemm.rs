@@ -90,8 +90,8 @@ impl Operator for Gemm {
             .map_err(|_| OnnxError::ShapeMismatch("b_prime is not 2-dimensional".to_string()))?;
 
         // Check shapes for matrix multiplication
-        let (m, k_a) = a_prime_2d.dim();
-        let (k_b, n) = b_prime_2d.dim();
+        let (_, k_a) = a_prime_2d.dim();
+        let (k_b, _) = b_prime_2d.dim();
         if k_a != k_b {
             return Err(OnnxError::ShapeMismatch
                 ("The inner dimensions of A' and B' do not match".to_string()));

@@ -12,9 +12,11 @@ use ndarray::{ArrayD, IxDyn, s};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ParallelProgressIterator, MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::auxiliary_functions::{load_data, read_initialiazers, load_model, model_proto_to_struct, load_ground_truth, argmax_per_row, compute_error_rate, compute_accuracy, display_model_info, print_results};
 
@@ -25,7 +27,6 @@ pub mod errors;
 mod labels_mapping;
 
 use display::menu;
-
 use rayon::prelude::*;
 
 fn main() {
@@ -171,60 +172,61 @@ fn main() {
     let sorted_node_names = topological_sort(dependencies);*/
     let (paths, fork_nodes, join_nodes) = find_dependencies(&mut model_read);
 
-    let start = Instant::now();
+    let multi_progress = MultiProgress::new();
+    let progress_bar_images = multi_progress.add(ProgressBar::new(images_vec.len() as u64));
+    progress_bar_images.set_style(
+        ProgressStyle::default_bar()
+            .template("\n{bar:60.green/white} {percent}% [{pos}/{len} images]")
+            .unwrap()
+            .progress_chars("█▁"),
+    );
 
-    let model_final_output = images_vec.par_iter()
-        .map(|img| {
+    let progress_bar_nodes = multi_progress.add(ProgressBar::new((model_read.len()*images_vec.len()) as u64));
+    progress_bar_nodes.set_style(
+        ProgressStyle::default_bar()
+            .template("\n{bar:60.green/white} {percent}% [executed nodes]")
+            .unwrap()
+            .progress_chars("█▁"),
+    );
+    let progress_bar_nodes_counter = Arc::new(AtomicUsize::new(0));
+    //let progress_bar_images_counter = Arc::new(AtomicUsize::new(0));
 
-            let bar = ProgressBar::new(model_read.len() as u64);
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("\n{bar:60.green/white} {percent}% [{pos}/{len} nodes]")
-                    .unwrap()
-                    .progress_chars("█▁"),
-            );
+    progress_bar_images.set_position(0);
+    progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
+
+    let network_timer = Instant::now();
+
+    let model_final_output = images_vec.par_iter().enumerate()
+        .map(|(index, img)| {
+
+            let mut found_start = false;
+
             let mut inputs = HashMap::new();
             inputs.insert(input_name.clone(), img.clone());
 
-            //(paths, fork_nodes, join_nodes)
             let mut node_index = 0;
-            while node_index < model_read.len() { // Use iter instead of iter_mut if possible
-                // Update progress bar safely (if necessary)
-                let node = &model_read[node_index];
-                bar.println(format!("🚀 Running node: {} {}", node.get_op_type().bold(), node.get_node_name().bold()));
-                let start_node = Instant::now();
-                let output = node.execute(&inputs)
-                    .expect("Node execution failed"); // Handle the error properly
-                let run_time_node = start_node.elapsed();
-                if verbose{
-                    bar.println(node.to_string(&inputs, &output, &run_time_node));
-                }
-
-                for (i, out) in output.iter().enumerate() {
-                    inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
-                }
-
-                if let Some(branches) = paths.get(&node.get_node_name()) {
+            if let Some(branches) = paths.get("START") {
+                if !found_start {
                     let branches_len = branches.iter().map(|v| v.len()).collect::<Vec<usize>>();
                     let inside_inputs: Vec<HashMap<String, ArrayD<f32>>> = branches.par_iter().enumerate().map(|(i, branch)| {
-                        let mut inner_inputs = HashMap::new();
-                        for (i, out) in output.iter().enumerate() {
-                            inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
-                        }
+                        let mut inner_inputs = inputs.clone();
 
                         let node_executed = branches_len.iter().take(i).sum::<usize>();
                         let model_to_run: Vec<&Box<dyn Operator>> = model_read
-                            [node_index+1+node_executed .. node_index+1+node_executed + branch.len()]
+                            [node_index + node_executed..node_index + node_executed + branch.len()]
                             .iter()
                             .collect();
 
                         for node in model_to_run {
+                            progress_bar_nodes.println(format!("🚀 Running node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index));
                             let start_node = Instant::now();
                             let output = node.execute(&inner_inputs)
                                 .expect("Node execution failed"); // Consider handling errors more gracefully
                             let run_time_node = start_node.elapsed();
-                            if verbose{
-                                bar.println(node.to_string(&inner_inputs, &output, &run_time_node));
+                            progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
+                            progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
+                            if verbose {
+                                progress_bar_nodes.println(node.to_string(&inputs, &output, &run_time_node));
                             }
                             for (i, out) in output.iter().enumerate() {
                                 inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
@@ -242,17 +244,84 @@ fn main() {
 
                     let total_node_run = branches_len.iter().sum::<usize>();
                     node_index += total_node_run;
-                    bar.inc(total_node_run as u64);
+                    found_start=true;
+                }
+            }
+
+            //(paths, fork_nodes, join_nodes)
+            while node_index < model_read.len() { // Use iter instead of iter_mut if possible
+                // Update progress bar safely (if necessary)
+                let node = &model_read[node_index];
+                progress_bar_nodes.println(format!("🚀 Running node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index));
+                let node_timer = Instant::now();
+                let output = node.execute(&inputs)
+                    .expect("Node execution failed"); // Handle the error properly
+                let run_time_node = node_timer.elapsed();
+                progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
+                //SeqCst guarantees that all threads see all sequentially consistent operations in the same order.
+                progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
+                if verbose{
+                    progress_bar_nodes.println(node.to_string(&inputs, &output, &run_time_node));
+                }
+
+                for (i, out) in output.iter().enumerate() {
+                    inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
+                }
+
+                if let Some(branches) = paths.get(&node.get_node_name()) {
+                    let branches_len = branches.iter().map(|v| v.len()).collect::<Vec<usize>>();
+                    let inside_outputs: Vec<HashMap<String, ArrayD<f32>>> = branches.par_iter().enumerate().map(|(i, branch)| {
+                        let mut inner_inputs = HashMap::new();
+                        for (i, out) in output.iter().enumerate() {
+                            inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
+                        }
+
+                        let node_executed = branches_len.iter().take(i).sum::<usize>();
+                        let model_to_run: Vec<&Box<dyn Operator>> = model_read
+                            [node_index+1+node_executed .. node_index+1+node_executed + branch.len()]
+                            .iter()
+                            .collect();
+
+                        for node in model_to_run {
+                            progress_bar_nodes.println(format!("🚀 Running node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index));
+                            let start_node = Instant::now();
+                            let output = node.execute(&inner_inputs)
+                                .expect("Node execution failed"); // Consider handling errors more gracefully
+                            let run_time_node = start_node.elapsed();
+                            progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
+                            progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
+                            if verbose{
+                                progress_bar_nodes.println(node.to_string(&inner_inputs, &output, &run_time_node));
+                            }
+                            for (i, out) in output.iter().enumerate() {
+                                inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
+                            }
+                        }
+
+                        inner_inputs
+                    }).collect::<Vec<HashMap<String, ArrayD<f32>>>>();
+
+                    for hash in inside_outputs {
+                        for (key, value) in hash {
+                            inputs.insert(key, value);
+                        }
+                    }
+
+                    let total_node_run = branches_len.iter().sum::<usize>();
+                    node_index += total_node_run;
                 }
 
                 node_index+=1;
-                bar.inc(1);
             }
+
+/*            progress_bar_images_counter.fetch_add(1, Ordering::SeqCst);
+            progress_bar_images.set_position(progress_bar_images_counter.load(Ordering::SeqCst) as u64);*/
 
             // Return the output for this particular input
             inputs.get(final_layer_name)
                 .expect("Final layer output not found").clone()
         })
+        .progress_with(progress_bar_images)
         .collect::<Vec<ArrayD<f32>>>();
 
     // Execute nodes in sorted order
@@ -281,8 +350,8 @@ fn main() {
     bar.finish();
 
      */
-    let run_time = start.elapsed();
-    println!("\n✅  The network has been successfully executed in {:?}\n", run_time);
+    let run_time = network_timer.elapsed();
+    println!("\n\n✅  The network has been successfully executed in {:?}\n", run_time);
 
     let shape = model_final_output[0].shape();
     let batch= model_final_output.len();
@@ -311,59 +380,102 @@ fn main() {
 
 fn find_dependencies(model_read: &mut Vec<Box<dyn Operator>>)
                      -> (HashMap<String, Vec<Vec<String>>>, HashSet<String>, HashSet<String>){
-    let mut dependencies = HashMap::new();
+    let mut node_outputs = HashMap::new();
     let mut join_nodes = HashSet::new();
 
     for node in model_read.iter() {
         let node_name = node.get_node_name();
-        dependencies.entry(node_name.clone()).or_insert(vec![]);
+        node_outputs.entry(node_name.clone()).or_insert(vec![]);
 
         let input_names = node.get_inputs();
         if input_names.len() > 1 {
             join_nodes.insert(node_name.clone());
         }
         for input in input_names {
-            dependencies.entry(input.clone()).or_default().push(node_name.clone());
+            for n in model_read.iter(){
+                let outputs = n.get_output_names();
+                let n_name = n.get_node_name();
+                if outputs.contains(&input){
+                    node_outputs.entry(n_name.clone()).or_default().push(node_name.clone());
+                }
+                if n_name == node_name{
+                    break;
+                }
+            }
         }
     }
 
-    for successors in dependencies.values_mut() {
-        if successors.len() > 1 {
-            successors.retain(|s| !join_nodes.contains(s));
+    let mut fork_nodes_for_parallelization = HashSet::new();
+    let mut fork_nodes = HashSet::new();
+
+    for (node_name, outputs) in node_outputs.iter(){
+        if outputs.iter().filter(|output| !join_nodes.contains(*output)).count()>1{ //it's a fork node
+            //with at least two branches with operations that can be run in parallel
+            fork_nodes_for_parallelization.insert(node_name.clone());
+        }
+        if outputs.iter().count()>1{
+            fork_nodes.insert(node_name.clone());
         }
     }
 
-    let fork_nodes: HashSet<String> = dependencies
+    let mut paths = HashMap::new();
+    //println!("{:?}", &node_outputs);
+    if fork_nodes.len()!=join_nodes.len(){ //there are some branches at the beginning for which there is a join node
+        //but not a fork node, like mnist-12
+        let number_of_branches = join_nodes.len()-fork_nodes.len()+1;
+        let mut index = 0;
+        paths.insert("START".to_string(), Vec::new());
+        paths.entry("START".to_string()).and_modify(|v| v.push(Vec::new()));
+        for node in model_read.iter(){
+            let node_name = node.get_node_name();
+            paths.entry("START".to_string()).and_modify(|v| v[index].push(node_name.clone()));
+            if node_outputs.get(&node_name).unwrap().iter().any(|output| join_nodes.contains(output)){
+                index+=1;
+                if index==number_of_branches{
+                    break;
+                }
+                paths.entry("START".to_string()).and_modify(|v| v.push(Vec::new()));
+            }
+        }
+    }
+
+    //println!("{:?}", &paths);
+
+    /*for outputs in node_outputs.values_mut() {
+        if outputs.len() > 1 { //it's a fork node
+            outputs.retain(|s| !join_nodes.contains(s)); //delete the join node from the outputs, if present
+        }
+    }*/
+
+    /*let fork_nodes: HashSet<String> = node_outputs
         .iter()
-        .filter_map(|(node, successors)| {
-            if successors.len() > 1 {
-                Some(node.clone())
+        .filter_map(|(node_name, outputs)| {
+            if outputs.len() > 1 { //keep only the fork nodes whose outputs are at least 2, join nodes excluded
+                //this means there are at least two branches that can be run in parallel
+                Some(node_name.clone())
             } else {
                 None
             }
         })
-        .collect();
+        .collect();*/
 
     let mut current_sub_path = Vec::new();
-    let mut paths = HashMap::new();
     let mut start_path: Option<String> = None;
-    let mut previous_fork_node: Option<&String> = None;
 
     for node in model_read {
         let node_name = node.get_node_name();
 
         // Check if the node is a fork node
-        if fork_nodes.contains(&node_name) {
+        if fork_nodes_for_parallelization.contains(&node_name) {
             start_path = Some(node_name.clone());
         } else if let Some(sp) = &start_path {
             // Check if the node is a join node
             if join_nodes.contains(&node_name) {
-                previous_fork_node = Some(sp);
                 start_path = None;
             } else {
                 // Add node to the current branch
                 current_sub_path.push(node_name.clone());
-                if dependencies.get(&node_name).unwrap().iter().any(|v| join_nodes.contains(v)) {
+                if node_outputs.get(&node_name).unwrap().iter().any(|v| join_nodes.contains(v)) {
                     //salva il path corrente e resettalo
                     if !current_sub_path.is_empty() {
                         paths.entry(sp.clone()).or_insert_with(Vec::new).push(current_sub_path.clone());
@@ -377,11 +489,11 @@ fn find_dependencies(model_read: &mut Vec<Box<dyn Operator>>)
     println!("Number of fork nodes: {}", paths.keys().len());
     for (start, path_nodes) in &paths {
         println!();
-        println!("Node fork:{}", start);
+        println!("Fork node: {}", start);
         println!("Path: {:?}", path_nodes);
     }
 
-    (paths, fork_nodes, join_nodes)
+    (paths, fork_nodes_for_parallelization, join_nodes)
 }
 
 

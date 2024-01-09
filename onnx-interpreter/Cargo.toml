@@ -19,7 +19,7 @@ protobuf = "3.2.0"
 byteorder = "1.4"
 maturin = "1.4.0"
 dialoguer = "0.11.0"
-indicatif = "0.17.7"
+indicatif = { version = "0.17.7", features = ["rayon"] }
 prettytable-rs = "0.10.0"
 colored = "2.1.0"
 ndarray-rand = "0.14.0"

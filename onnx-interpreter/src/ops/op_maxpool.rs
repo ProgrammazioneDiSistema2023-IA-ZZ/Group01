@@ -74,8 +74,8 @@ impl Operator for MaxPool {
         }
 
         let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; input.shape()[2]*input.shape()[3]]);
-        let mut kernel_shape = self.kernel_shape.clone().unwrap();
-        let mut pads = self.pads.clone().unwrap_or_else(|| vec![0; input.shape()[2]*input.shape()[3]].repeat(2));//vec![0; x.ndim() - 2]
+        let kernel_shape = self.kernel_shape.clone().unwrap();
+        let pads = self.pads.clone().unwrap_or_else(|| vec![0; input.shape()[2]*input.shape()[3]].repeat(2));//vec![0; x.ndim() - 2]
         let strides = self.strides.clone().unwrap_or_else(|| vec![1; input.shape()[2]*input.shape()[3]]);//vec![0; x.ndim() - 2]
 
         //let mut res = ArrayD::<f32>::zeros(vec![]);
@@ -85,7 +85,7 @@ impl Operator for MaxPool {
             .map(|i| (pads[i as usize], pads[(i + n_dims) as usize]))
             .collect();
 
-        let mut input_spatial_shape = input.shape()[2..].to_vec();
+        let input_spatial_shape = input.shape()[2..].to_vec();
         let mut output_spatial_shape = vec![0; input_spatial_shape.len()];
 
         if let Some(ceil_mode) = self.ceil_mode{

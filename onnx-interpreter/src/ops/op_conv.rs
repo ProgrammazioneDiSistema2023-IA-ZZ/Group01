@@ -1,5 +1,5 @@
 use super::op_operator::{Initializer, Operator};
-use ndarray::{ArrayD, s, IxDyn, ShapeBuilder, Dimension};
+use ndarray::{ArrayD, s, IxDyn, Dimension};
 use std::collections::HashMap;
 use crate::errors::OnnxError;
 use crate::parser_code::onnx_ml_proto3::NodeProto;
@@ -33,8 +33,8 @@ impl Conv {
         let node_name = node.name.to_owned();
         let output_name = node.output[0].to_owned();
 
-        let mut input_name = node.input[0].to_owned();
-        let mut kernel_name = node.input[1].to_owned();
+        let input_name = node.input[0].to_owned();
+        let kernel_name = node.input[1].to_owned();
 
         let mut initializers_vec = Vec::new();
         initializers_vec.push(Initializer::new(kernel_name.clone(), initializers.remove(kernel_name.as_str()).unwrap().to_owned()));
@@ -166,12 +166,12 @@ impl Conv {
         }
 
         if x.ndim() == 4 {
-            let (sN, sC, sH, sW) = (x.shape()[0], x.shape()[1], x.shape()[2], x.shape()[3]);
+            let (sn, sc, sh, sw) = (x.shape()[0], x.shape()[1], x.shape()[2], x.shape()[3]);
             let (kh, kw) = (kernel_shape_copy[0], kernel_shape_copy[1]);
             let (sth, stw) = (strides[0], strides[1]);
 
-            let h_out = (((sH as i32 - kh as i32 + pads_copy[0] as i32 + pads_copy[2] as i32) / sth as i32) + 1) as usize;
-            let w_out = (((sW as i32 - kw as i32 + pads_copy[1] as i32 + pads_copy[3] as i32) / stw as i32) + 1) as usize;
+            let h_out = (((sh as i32 - kh as i32 + pads_copy[0] as i32 + pads_copy[2] as i32) / sth as i32) + 1) as usize;
+            let w_out = (((sw as i32 - kw as i32 + pads_copy[1] as i32 + pads_copy[3] as i32) / stw as i32) + 1) as usize;
 
             let h0 = pads_copy[0] as i32;
             let w0 = pads_copy[1] as i32;
@@ -180,7 +180,7 @@ impl Conv {
             let (bh, bw) = (-h0, -w0);
             let (eh, ew) = (h_out as i32 * sth as i32, w_out as i32 * stw as i32);
 
-            res = ArrayD::<f32>::zeros(vec![sN, w_copy.shape()[0], h_out, w_out]);
+            res = ArrayD::<f32>::zeros(vec![sn, w_copy.shape()[0], h_out, w_out]);
 
             if b.is_some(){
                 let bias_shape = [1, b.unwrap().len(), 1, 1];
@@ -191,9 +191,9 @@ impl Conv {
                 res += &broadcasted_bias;
             }
 
-            for n in 0..sN {
+            for n in 0..sn {
                 for nw in 0..w_copy.shape()[0] {
-                    for c in 0..sC {
+                    for c in 0..sc {
 
                         let w_slice = w_copy.slice(s![nw..nw+1, c..c+1, .., ..]);
                         for io in (bh..eh).step_by(sth) {
@@ -203,7 +203,7 @@ impl Conv {
                             }
                             let i = io + kh as i32 %2;
                             let ih1 = (i+oh).max(0) as usize;
-                            let ih2 = (i + oh +kh as i32).min(sH as i32) as usize;
+                            let ih2 = (i + oh +kh as i32).min(sh as i32) as usize;
 
                             for jo in (bw..ew).step_by(stw) {
                                 let wr = (jo - bw) / stw as i32;
@@ -212,19 +212,19 @@ impl Conv {
                                 }
                                 let j = jo + kw as i32 %2;
                                 let iw1 = (j+ow).max(0) as usize;
-                                let iw2 = (j + kw as i32 +ow).min(sW as i32) as usize;
+                                let iw2 = (j + kw as i32 +ow).min(sw as i32) as usize;
 
                                 let img_slice = x.slice(s![n..n+1, c..c+1, ih1..ih2, iw1..iw2]);
-                                let mut value;
+                                let value;
                                 // Perform the convolution operation and sum to res
                                 if img_slice.shape() != w_slice.shape() {
                                     let (jh1, jh2) = (
                                         std::cmp::max(-oh - i, 0) as usize,
-                                        std::cmp::min(kh as i32, kh as i32 + sH as i32 - (i + oh + kh as i32)) as usize
+                                        std::cmp::min(kh as i32, kh as i32 + sh as i32 - (i + oh + kh as i32)) as usize
                                     );
                                     let (jw1, jw2) = (
                                         std::cmp::max(-ow - j, 0) as usize,
-                                        std::cmp::min(kw as i32, kw as i32 + sW as i32 - (j + ow + kw as i32)) as usize
+                                        std::cmp::min(kw as i32, kw as i32 + sw as i32 - (j + ow + kw as i32)) as usize
                                     );
 
                                     let w_adjusted = w_slice.slice(s![..1, ..1, jh1..jh2, jw1..jw2]);
@@ -232,7 +232,7 @@ impl Conv {
                                     if img_slice.shape() != w_adjusted.shape() {
                                         return Err(format!(
                                             "Unexpected shape {:?} != {:?}, oh={}, ow={}, i={}, j={}, kh={}, kw={}, sH={}, sW={}, sth={}, stw={}.",
-                                            img_slice.shape(), w_adjusted.shape(), oh, ow, i, j, kh, kw, sH, sW, sth, stw
+                                            img_slice.shape(), w_adjusted.shape(), oh, ow, i, j, kh, kw, sh, sw, sth, stw
                                         ));
                                     }
 
@@ -276,7 +276,7 @@ impl Operator for Conv{
 
         let input_name = &self.input_name;
         let x = inputs.get(input_name).ok_or(OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
-        let mut w = self.initializers[0].get_value();
+        let w = self.initializers[0].get_value();
         let mut b_init=None ;
         if self.initializers.len()>1{
             b_init = Some(self.initializers[1].get_value());
@@ -346,7 +346,7 @@ impl Operator for Conv{
             if b_init.is_some(){
                 let mut new_shape = vec![1; result.ndim()];
                 new_shape[1] = b_init.unwrap().shape()[0];
-                if let b_value = b_init.unwrap(){
+                if let Some(b_value) = b_init{
                     let tmp = b_value.clone().into_shape(IxDyn(&new_shape)).unwrap();
                     result=result+tmp;
                 }

@@ -23,8 +23,7 @@
 <div align="center">
   <img src="images/rustyOnix.png" alt="Logo" width="120" height="120">
 
-  <h3 align="center">RustONNX: Gotta Infer 'em All!</h3>
-  <br/>
+  # RustONNX: Gotta Infer 'em All!
 
   <p align="center">
     TODO - Short Description
@@ -68,7 +67,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Screen Shot][product-screenshot]](https://example.com)
+### Features
 
 TODO
 
@@ -83,7 +82,29 @@ to the Pokémon series.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Built With
+### Supported models
+
+| Model name           | Description                                                                        | Version | Opset version |
+| -------------------- | ---------------------------------------------------------------------------------- | ------- | ------------- |
+| **mnist-12**         | Handwritten digits recognition model specifically designed for the MNIST dataset.  | N/A     | 12            |
+| **resnet18-v1-7**    | Image classification model with 18 layers for ImageNet-like datasets.              | 1       | 7             |
+| **resnet18-v2-7**    | Image classification model with 18 layers for ImageNet-like datasets.              | 2       | 7             |
+| **mobilenetv2-7**    | Efficient and lightweight image classification model for ImageNet-like datasets.   | 2       | 7             |
+
+#### :warning: ONNX Model Zoo is undergoing some changes
+During the development of this project, the ONNX Model Zoo was being expanded by incorporating additional models. Since new models had not been validated yet, the models supported by our _RustONNX: Gotta Infer 'em All!_ were taken from the set of _validated_ networks.
+
+Please, be aware that new models may be more performant and that old models, included the ones supported by our _RustONNX: Gotta Infer 'em All!_, may be deleted in future updates of the ONNX Model Zoo.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+### Supported operators
+
+TODO
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!--### Built With
 
 This section should list any major frameworks/libraries used to bootstrap your project. Leave any add-ons/plugins for the acknowledgements section.
 
@@ -92,14 +113,11 @@ This section should list any major frameworks/libraries used to bootstrap your p
 
 TO-COMPLETE
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#readme-top">back to top</a>)</p>-->
 
+## How to install
 
-
-<!-- GETTING STARTED TODO -->
-## Getting Started
-
-To get a local copy up and running follow these simple example steps.
+TODO 
 
 ### Prerequisites
 
@@ -130,7 +148,6 @@ To avoid any build issues, it's recommended to clone or place the project in a d
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-
 <!-- USAGE EXAMPLES TODO -->
 ## Usage
 
@@ -140,6 +157,12 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+
+## Project structure
+
+TODO
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 ## Contributing
