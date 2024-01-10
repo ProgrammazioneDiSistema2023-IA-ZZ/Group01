@@ -17,7 +17,7 @@ Cargo.lock
 **/.idea/
 
 # parser_code modules that are generated at build time
-onnx-interpreter/src/parser_code/
+rust-onnx/src/parser_code/
 
 # .DS_Store files
 **/.DS_Store
