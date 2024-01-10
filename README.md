@@ -88,7 +88,7 @@ to the Pokémon series.
 | -------------------- | ---------------------------------------------------------------------------------- | ------- | ------------- |
 | **mnist-12**         | Handwritten digits recognition model specifically designed for the MNIST dataset.  | N/A     | 12            |
 | **resnet18-v1-7**    | Image classification model with 18 layers for ImageNet-like datasets.              | 1       | 7             |
-| **resnet18-v2-7**    | Image classification model with 18 layers for ImageNet-like datasets.              | 2       | 7             |
+| **resnet34-v2-7**    | Image classification model with 34 layers for ImageNet-like datasets.              | 2       | 7             |
 | **mobilenetv2-7**    | Efficient and lightweight image classification model for ImageNet-like datasets.   | 2       | 7             |
 
 #### :warning: ONNX Model Zoo is undergoing some changes

@@ -1,7 +1,7 @@
 pub mod op_operator;
 pub mod op_add;
 pub mod op_batchnorm;
-pub mod op_conv;
+pub mod op_conv_optimized;
 pub mod op_flatten;
 pub mod op_gemm;
 pub mod op_globalaveragepooling;

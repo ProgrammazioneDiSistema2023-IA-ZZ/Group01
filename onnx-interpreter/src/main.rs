@@ -77,7 +77,7 @@ fn main() {
     let custom_dataset_serialized_path = PathBuf::from("models").join(&chosen_model)
         .join(folder_name + "_serialized");
 
-    let mut label_stack;
+    let label_stack;
     let mut file_paths = vec![];
 
     let images_vec = match test_dataset{
@@ -170,7 +170,7 @@ fn main() {
 
     // Sort nodes topologically
     let sorted_node_names = topological_sort(dependencies);*/
-    let (paths, fork_nodes, join_nodes) = find_dependencies(&mut model_read);
+    let (paths, _, _) = find_dependencies(&mut model_read);
 
     let multi_progress = MultiProgress::new();
     let progress_bar_images = multi_progress.add(ProgressBar::new(images_vec.len() as u64));
@@ -218,7 +218,6 @@ fn main() {
                             .collect();
 
                         for node in model_to_run {
-                            progress_bar_nodes.println(format!("🚀 Running node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index));
                             let start_node = Instant::now();
                             let output = node.execute(&inner_inputs)
                                 .expect("Node execution failed"); // Consider handling errors more gracefully
@@ -226,7 +225,10 @@ fn main() {
                             progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
                             progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
                             if verbose {
-                                progress_bar_nodes.println(node.to_string(&inputs, &output, &run_time_node));
+                                progress_bar_nodes.println(node.to_string(&inner_inputs, &output, &run_time_node, index.to_string()));
+                            }
+                            else{
+                                progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
                             }
                             for (i, out) in output.iter().enumerate() {
                                 inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
@@ -252,7 +254,6 @@ fn main() {
             while node_index < model_read.len() { // Use iter instead of iter_mut if possible
                 // Update progress bar safely (if necessary)
                 let node = &model_read[node_index];
-                progress_bar_nodes.println(format!("🚀 Running node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index));
                 let node_timer = Instant::now();
                 let output = node.execute(&inputs)
                     .expect("Node execution failed"); // Handle the error properly
@@ -261,7 +262,10 @@ fn main() {
                 //SeqCst guarantees that all threads see all sequentially consistent operations in the same order.
                 progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
                 if verbose{
-                    progress_bar_nodes.println(node.to_string(&inputs, &output, &run_time_node));
+                    progress_bar_nodes.println(node.to_string(&inputs, &output, &run_time_node, index.to_string()));
+                }
+                else{
+                    progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
                 }
 
                 for (i, out) in output.iter().enumerate() {
@@ -283,7 +287,6 @@ fn main() {
                             .collect();
 
                         for node in model_to_run {
-                            progress_bar_nodes.println(format!("🚀 Running node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index));
                             let start_node = Instant::now();
                             let output = node.execute(&inner_inputs)
                                 .expect("Node execution failed"); // Consider handling errors more gracefully
@@ -291,7 +294,10 @@ fn main() {
                             progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
                             progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
                             if verbose{
-                                progress_bar_nodes.println(node.to_string(&inner_inputs, &output, &run_time_node));
+                                progress_bar_nodes.println(node.to_string(&inner_inputs, &output, &run_time_node, index.to_string()));
+                            }
+                            else{
+                                progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
                             }
                             for (i, out) in output.iter().enumerate() {
                                 inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());

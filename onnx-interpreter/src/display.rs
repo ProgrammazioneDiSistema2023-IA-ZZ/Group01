@@ -32,9 +32,10 @@ pub fn menu() -> (String, bool, bool, String){
     print_intro();
 
     let models_names = vec!["MNIST (opset-version=12)", "ResNet-18 (v1, opset-version=7)",
-                            "ResNet-18 (v2, opset-version=7)", "MobileNet (v2, opset-version=7)"];
+                            "ResNet-34 (v2, opset-version=7)",
+                            "MobileNet (v2, opset-version=7)"];
 
-    let models = vec!["mnist-12", "resnet18-v1-7", "resnet18-v2-7", "mobilenetv2-7"];
+    let models = vec!["mnist-12", "resnet18-v1-7", "resnet34-v2-7","mobilenetv2-7"];
 
     let mut options = Vec::new();
     for model_name in &models_names{
@@ -91,7 +92,7 @@ pub fn menu() -> (String, bool, bool, String){
                 3) at least one subfolder that follows the naming convention mentioned above must reside within the dataset folder;\n\
                 4) accepted image formats are .jpg, .jpeg or .png;\n\
                 5) all subfolders following the expected naming convention must include at least a .jpg, .jpeg or .png file.\n\
-                For example, you may have a \"my-dataset/\" folder under \"resnet18-v2-7/\" with a \"207/\" subfolder that includes \
+                For example, you may have a \"my-dataset/\" folder under \"resnet18-v1-7/\" with a \"207/\" subfolder that includes \
                 a .jpg, .jpeg or .png image of a golden retriever, since 207 is the label for a golden retriever in the ImageNet dataset.\
             \n(type 'BACK' to go back to the main menu)")
                 .interact()

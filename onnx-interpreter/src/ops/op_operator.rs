@@ -27,7 +27,7 @@ impl Initializer{
 
 pub trait Operator: Send + Sync {
     fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError>;
-    fn to_string(&self, inputs: &HashMap<String, ArrayD<f32>>, outputs: &Vec<ArrayD<f32>>, execution_time: &Duration) -> String{
+    fn to_string(&self, inputs: &HashMap<String, ArrayD<f32>>, outputs: &Vec<ArrayD<f32>>, execution_time: &Duration, image_index: String) -> String{
         let mut table = Table::new();
         table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
         table.set_titles(row![
@@ -65,7 +65,8 @@ pub trait Operator: Send + Sync {
             shape.bright_green()
         ]);
         }
-        return format!("👌 Done. Node info:\n{}Execution time for the node: {:?}\n\n", table.to_string(), execution_time);
+        return format!("\n🚀 Executed node: {} {} for image: {}\nNode info:\n{}Execution time for the node: {:?}\n\n",
+                       self.get_op_type().bold(), self.get_node_name().bold(), image_index.bold(), table.to_string(), execution_time);
     }
     fn get_inputs(&self) -> Vec<String>;
     fn get_output_names(&self) -> Vec<String>;

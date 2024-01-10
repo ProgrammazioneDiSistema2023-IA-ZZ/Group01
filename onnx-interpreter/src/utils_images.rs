@@ -12,10 +12,10 @@ use std::io::Write;
 use std::path::{PathBuf};
 
 pub fn serialize_images (custom_dataset_path: &PathBuf, custom_dataset_serialized_path: &PathBuf, chosen_model: &String)->Result<(),Box<dyn std::error::Error>>{
-    const MNIST: &str = "mnist-12";
-    const RESNETV1: &str = "resnet18-v1-7";
-    const RESNETV2: &str = "resnet18-v2-7";
-    const MOBILENET: &str = "mobilenetv2-7";
+    const MNIST_12: &str = "mnist-12";
+    const RESNET18_V1_7: &str = "resnet18-v1-7";
+    const RESNET34_V2_7: &str = "resnet34-v2-7";
+    const MOBILENET_V2_7: &str = "mobilenetv2-7";
     const MNIST_NUM_CLASSES : usize = 10;
     const IMAGENET_NUM_CLASSES : usize = 1000;
 
@@ -48,15 +48,14 @@ pub fn serialize_images (custom_dataset_path: &PathBuf, custom_dataset_serialize
                             let img_name = filename.clone() + "." + extension;
                             let image_pb_path = custom_dataset_serialized_path.join("images").join(filename.clone() + ".pb");
                             //println!("{:?}", img_res_path_filename);
-                            //["mnist-8", "resnet18-v1-7", "resnet18-v2-7", "squeezenet1.0-8", "mobilenetv2-7"]
 
                             let mut num_classes = 0;
                             match chosen_model.as_str() {
-                                MNIST => {
+                                MNIST_12 => {
                                     serialize_mnist_image_to_pb(&image_path, &image_pb_path, img_name.clone()).unwrap();
                                     num_classes = MNIST_NUM_CLASSES;
                                 },
-                                RESNETV1 | RESNETV2 | MOBILENET => {
+                                RESNET18_V1_7 | MOBILENET_V2_7 | RESNET34_V2_7 => {
                                     serialize_imagenet_to_pb(&image_path, &image_pb_path).unwrap();
                                     num_classes = IMAGENET_NUM_CLASSES;
                                 },

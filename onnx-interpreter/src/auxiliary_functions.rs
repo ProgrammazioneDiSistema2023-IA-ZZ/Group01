@@ -201,7 +201,7 @@ pub fn print_results (model: &String, files: &Vec<String>, predictions: &Vec<usi
     let max_elements = 50;
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-    if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+    if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet34-v2-7"{
         table.set_titles(row![
             "Input file".bold(),
             "Prediction".bold(),
@@ -226,7 +226,7 @@ pub fn print_results (model: &String, files: &Vec<String>, predictions: &Vec<usi
         } else {
             (f.bright_red(), prediction_string.bright_red(), gt_string.bright_red())
         };
-        if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+        if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet34-v2-7"{
             let predicted_label = IMAGENET_CLASSES[predictions[i]];
             let ground_truth_label = IMAGENET_CLASSES[ground_truth[i]];
             let (pl_style, gtl_style) = if correct_prediction {
@@ -250,7 +250,7 @@ pub fn print_results (model: &String, files: &Vec<String>, predictions: &Vec<usi
     else{
         let mut reduced_table = Table::new();
         reduced_table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-        if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+        if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet34-v2-7"{
             reduced_table.set_titles(row![
             "Input file".bold(),
             "Prediction".bold(),
@@ -275,7 +275,7 @@ pub fn print_results (model: &String, files: &Vec<String>, predictions: &Vec<usi
             } else {
                 (f.bright_red(), prediction_string.bright_red(), gt_string.bright_red())
             };
-            if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet18-v2-7"{
+            if model=="mobilenetv2-7" || model=="resnet18-v1-7" || model=="resnet34-v2-7"{
                 let predicted_label = IMAGENET_CLASSES[predictions[i]];
                 let ground_truth_label = IMAGENET_CLASSES[ground_truth[i]];
                 let (pl_style, gtl_style) = if correct_prediction {
@@ -324,7 +324,7 @@ pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<S
                         node,initializer_set)))
                 },
                 "Conv" => {
-                    model_vec.push(Box::new(op_conv::Conv::new(
+                    model_vec.push(Box::new(op_conv_optimized::Conv::new(
                        node, initializer_set
                     )))
                 },
