@@ -51,12 +51,6 @@ impl Operator for Add {
                 OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap()
         };
 
-        /*inputs.get(&self.inputs_names[1]) {
-            Some(tensor) => { tensor},
-            None => { self.parameter_value.as_ref().expect("Parameter tensor not found") },
-        };*/
-        //println!("{}", self.to_string(verbose));
-
         let result = a + b;
         Ok(vec![result])
     }

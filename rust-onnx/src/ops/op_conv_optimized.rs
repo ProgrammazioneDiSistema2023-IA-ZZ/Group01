@@ -37,12 +37,12 @@ impl Conv {
         let kernel_name = node.input[1].to_owned();
 
         let mut initializers_vec = Vec::new();
-        initializers_vec.push(Initializer::new(kernel_name.clone(), initializers.remove(kernel_name.as_str()).unwrap().to_owned()));
+        initializers_vec.push(Initializer::new(kernel_name.clone(), initializers.remove(kernel_name.as_str()).unwrap()));
 
-        let mut bias_name = None;
+
         if node.input.len() == 3{
-            bias_name = Some(node.input[2].to_owned());
-            initializers_vec.push(Initializer::new(bias_name.clone().unwrap(), initializers.remove(bias_name.unwrap().as_str()).unwrap().to_owned()));
+            let bias_name = node.input[2].to_owned();
+            initializers_vec.push(Initializer::new(bias_name.to_owned(), initializers.remove(bias_name.as_str()).unwrap()));
         }
 
         let mut kernel_shape = None;
@@ -282,6 +282,7 @@ impl Operator for Conv{
         let input_name = &self.input_name;
         let x = inputs.get(input_name).ok_or(OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
         let w = self.initializers[0].get_value();
+        let auto_pad = &self.auto_pad;
         let mut b_init=None ;
         if self.initializers.len()>1{
             b_init = Some(self.initializers[1].get_value());
@@ -327,7 +328,7 @@ impl Operator for Conv{
                     let gx: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gx_view.shape()), gx_view.iter().cloned().collect()).unwrap();
                     let gw: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gw_view.shape()), gw_view.iter().cloned().collect()).unwrap();
                     //x: , w: , bias: , auto_pad: , dilations: , kernel_shape: , pads: , strides:
-                    let cv = Conv::execute_conv_optimized(gx, gw, None, &self.auto_pad, &dilations, &kernel_shape, &pads, &strides).unwrap();
+                    let cv = Conv::execute_conv_optimized(gx, gw, None, auto_pad, &dilations, &kernel_shape, &pads, &strides).unwrap();
                     if b==0 {
                         td += cv[0].shape()[1];
                     }
@@ -366,7 +367,7 @@ impl Operator for Conv{
             return Ok(vec![result]);
         }
 
-        Ok(Conv::execute_conv_optimized(x.clone(), w.clone(), b_init, &self.auto_pad, &dilations, &kernel_shape, &pads, &strides).unwrap())
+        Ok(Conv::execute_conv_optimized(x.clone(), w.clone(), b_init, auto_pad, &dilations, &kernel_shape, &pads, &strides).unwrap())
     }
 
     fn get_inputs(&self) -> Vec<String> {

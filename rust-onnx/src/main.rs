@@ -17,7 +17,8 @@ use std::time::Instant;
 use colored::Colorize;
 use indicatif::{ParallelProgressIterator, MultiProgress, ProgressBar, ProgressStyle};
 
-use crate::auxiliary_functions::{load_data, read_initialiazers, load_model, model_proto_to_struct, load_ground_truth, argmax_per_row, compute_error_rate, compute_accuracy, display_model_info, print_results};
+use crate::auxiliary_functions::{load_data, read_initializers, load_model, model_proto_to_struct, load_ground_truth,
+                                 argmax_per_row, compute_error_rate, compute_accuracy, display_model_info, print_results};
 
 use crate::utils_images::{ serialize_images };
 
@@ -52,10 +53,9 @@ fn main() {
 
  */
 
-    let mut initialiazers: HashMap<String, ArrayD<f32>> = HashMap::new();
-    initialiazers = read_initialiazers(&model.graph.initializer);
+    let mut initializers: HashMap<String, ArrayD<f32>> = read_initializers(&model.graph.initializer);
 
-    let mut model_read = model_proto_to_struct(&model, &mut initialiazers);
+    let mut model_read = model_proto_to_struct(&model, &mut initializers);
     //to delete/change the print when code is ok, for now it's useful for debugging
     /*for node in &model_read{
         println!("{}", node.to_string());

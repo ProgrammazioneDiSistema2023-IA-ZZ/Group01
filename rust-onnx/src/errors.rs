@@ -1,3 +1,5 @@
+
+
 #[derive(Debug)]
 pub enum OnnxError{
 
@@ -13,4 +15,9 @@ pub enum OnnxError{
 
     OperationNotImplemented (String),
 
+    UnsupportedDataType(String),
+
+    DecodingNotPossible(String),
+
 }
+

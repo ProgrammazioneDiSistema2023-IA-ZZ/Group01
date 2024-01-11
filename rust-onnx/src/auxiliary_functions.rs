@@ -31,6 +31,7 @@ pub fn load_model(file_path: &PathBuf) -> ModelProto {
 }
 
 pub fn raw_data_to_array(data: &TensorProto, dims: Vec<usize>)->Result<ArrayD<f32>, OnnxError>{
+
     let data_array = data.raw_data
         .chunks_exact(4)
         .map(|chunk| {
@@ -104,7 +105,7 @@ pub fn load_ground_truth(file_path: &PathBuf) -> Result<ArrayD<f32>, OnnxError> 
 }
 
 /***********TO CHECK***********/
-pub fn read_initialiazers(model_initializers: &[TensorProto] ) -> HashMap<String, Array<f32, IxDyn>> {
+pub fn read_initializers(model_initializers: &[TensorProto] ) -> HashMap<String, Array<f32, IxDyn>> {
     let mut initializer_set: HashMap<String, Array<f32, IxDyn>> = HashMap::new();
 
     for initializer in model_initializers {
@@ -175,14 +176,6 @@ pub fn print_nodes(model: &ModelProto) {
     }
     println!("{:?}", optypes);
 }
-
-pub fn argmax(arr: &[f32]) -> Option<usize> {
-    arr.iter()
-        .enumerate()
-        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .map(|(index, _)| index)
-}
-
 
 pub fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
     matrix
@@ -385,7 +378,7 @@ pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<S
                 },
                 _ => {
                     //Insert the error OperationNotImplemented
-                    // TODO Handle the case where the initializer is not found, eventually blocking the whole program
+                    panic!("{} operation is still not implemented", node.op_type);
                 }
             }
 
@@ -394,14 +387,14 @@ pub fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<S
     model_vec
 }
 
-pub fn compute_error_rate(vec1: &[usize], vec2: &[usize]) -> Result<f32, &'static str> {
+pub fn compute_error_rate(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxError> {
 
     if vec1.is_empty() || vec2.is_empty() {
-        return Err("Vectors cannot be empty.");
+        return Err(OnnxError::ShapeMismatch("Vectors cannot be empty.".to_string()));
     }
 
     if vec1.len() != vec2.len() {
-        return Err("Vectors must be of the same length.");
+        return Err(OnnxError::ShapeMismatch("Vectors must be of the same length.".to_string()));
     }
 
 
@@ -409,14 +402,14 @@ pub fn compute_error_rate(vec1: &[usize], vec2: &[usize]) -> Result<f32, &'stati
     Ok(count  as f32/vec1.len() as f32)
 }
 
-pub fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, &'static str> {
+pub fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxError> {
 
     if vec1.is_empty() || vec2.is_empty() {
-        return Err("Vectors cannot be empty.");
+        return Err(OnnxError::ShapeMismatch("Vectors cannot be empty.".to_string()));
     }
 
     if vec1.len() != vec2.len() {
-        return Err("Vectors must be of the same length.");
+        return Err(OnnxError::ShapeMismatch("Vectors must be of the same length.".to_string()));
     }
 
 

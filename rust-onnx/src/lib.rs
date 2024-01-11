@@ -54,7 +54,7 @@ fn main() {
      */
 
     let mut initialiazers: HashMap<String, ArrayD<f32>> = HashMap::new();
-    initialiazers = read_initialiazers(&model.graph.initializer);
+    initialiazers = read_initialiazers(&model.graph.initializer).unwrap();
 
     let mut model_read = model_proto_to_struct(&model, &mut initialiazers);
     //to delete/change the print when code is ok, for now it's useful for debugging

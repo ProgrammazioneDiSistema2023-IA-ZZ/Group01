@@ -13,7 +13,7 @@ pub struct MatMul {
 }
 
 impl MatMul {
-    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, _initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let inputs_name:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
         let output_name = node.output[0].to_owned();
@@ -29,8 +29,8 @@ impl MatMul {
 
 impl Operator for MatMul {
     fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
-        let input_name1 = self.inputs_name[0].clone();
-        let input_name2 = self.inputs_name[1].clone();
+        let input_name1 = &self.inputs_name[0];
+        let input_name2 = &self.inputs_name[1];
 
         let input1 = inputs.get(input_name1.as_str())
             .ok_or_else(||

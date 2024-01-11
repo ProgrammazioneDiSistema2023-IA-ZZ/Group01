@@ -14,7 +14,7 @@ pub struct ReLU {
 }
 
 impl ReLU {
-    pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
+    pub fn new(node: &NodeProto, _initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
         let node_name = node.name.to_owned();
         let input_name = node.input[0].to_owned();
