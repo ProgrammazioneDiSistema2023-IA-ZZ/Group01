@@ -1,30 +1,21 @@
-mod auxiliary_functions;
-mod parser_code;
-mod ops;
-mod utils_images;
+
+mod onnx_parser;
+mod utils;
+mod operators;
 
 extern crate protobuf;
 
-use crate::ops::op_operator::Operator;
+use crate::operators::op_operator::Operator;
 
 use std::collections::{HashMap, HashSet};
 use ndarray::{ArrayD, IxDyn, s};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use colored::Colorize;
 use indicatif::{ParallelProgressIterator, MultiProgress, ProgressBar, ProgressStyle};
 
-use crate::auxiliary_functions::{load_data, read_initialiazers, load_model, model_proto_to_struct, load_ground_truth, argmax_per_row, compute_error_rate, compute_accuracy, display_model_info, print_results};
-
-use crate::utils_images::{ serialize_images };
-
-mod display;
-pub mod errors;
-mod labels_mapping;
 
 use display::menu;
 use rayon::prelude::*;
@@ -34,7 +25,7 @@ fn main() {
 
     let (chosen_model, verbose, test_dataset, folder_name) = menu();
 
-    let model_path = PathBuf::from("models").join(&chosen_model).join("model.onnx");
+    let model_path = PathBuf::from("models").join(chosen_model.as_str()).join("model.onnx");
 
     // Load ONNX model
     let model = load_model(&model_path);
@@ -53,26 +44,25 @@ fn main() {
 
      */
 
-    let mut initialiazers: HashMap<String, ArrayD<f32>> = HashMap::new();
-    initialiazers = read_initialiazers(&model.graph.initializer).unwrap();
+    let mut initializers: HashMap<String, ArrayD<f32>> = read_initializers(&model.graph.initializer);
 
-    let mut model_read = model_proto_to_struct(&model, &mut initialiazers);
+    let mut model_read = model_proto_to_struct(&model, &mut initializers);
     //to delete/change the print when code is ok, for now it's useful for debugging
     /*for node in &model_read{
         println!("{}", node.to_string());
         println!();
     }*/
 
-    display_model_info(&chosen_model, version, model_read.len());
+    display_model_info(chosen_model.as_str(), version, model_read.len());
 
     //let mut inputs: HashMap<String, ArrayD<f32>> = HashMap::new();
 
 
-    let test_input_path = PathBuf::from("models").join(&chosen_model).join("test_data_set_0").join("input_0.pb");
-    let test_label_path = PathBuf::from("models").join(&chosen_model).join("test_data_set_0").join("output_0.pb");
+    let test_input_path = PathBuf::from("models").join(chosen_model.as_str()).join("test_data_set_0").join("input_0.pb");
+    let test_label_path = PathBuf::from("models").join(chosen_model.as_str()).join("test_data_set_0").join("output_0.pb");
 
-    let custom_dataset_path = PathBuf::from("models").join(&chosen_model).join(&folder_name);
-    let custom_dataset_serialized_path = PathBuf::from("models").join(&chosen_model)
+    let custom_dataset_path = PathBuf::from("models").join(chosen_model.as_str()).join(&folder_name);
+    let custom_dataset_serialized_path = PathBuf::from("models").join(chosen_model.as_str())
         .join(folder_name + "_serialized");
 
     let label_stack;
@@ -81,7 +71,7 @@ fn main() {
     let images_vec = match test_dataset{
         true=>{
             let (input_image, _) = load_data(&test_input_path).unwrap();
-            file_paths.push(test_input_path.to_str().unwrap().to_string());
+            file_paths.push(test_input_path);
             label_stack = load_ground_truth(&test_label_path).unwrap();
             let mut images = vec![];
             for i in 0..input_image.shape()[0]{
@@ -98,12 +88,12 @@ fn main() {
                 Ok(dir)=>{
                     for file_res in dir{
                         let file_path = file_res.unwrap().path();
-                        let filename = file_path.file_stem().and_then(|stem| stem.to_str()).map(|s| s.to_string()).unwrap();
-                        let extension = file_path.extension().and_then(|ext| ext.to_str()).unwrap();
-                        if !(extension=="pb"){
+                        let filename = &file_path.file_stem().and_then(|stem| stem.to_str()).map(|s| s.to_string()).unwrap();
+                        let extension = &file_path.extension().and_then(|ext| ext.to_str()).unwrap();
+                        if !(*extension=="pb"){
                             continue;
                         }
-                        file_paths.push(file_path.to_str().unwrap().to_string());
+                        file_paths.push(file_path.clone());
                         let label_file_name = filename.clone() + "." + extension;
                         let label_path = custom_dataset_serialized_path.join("labels").join(label_file_name);
                         let (input_image, _) = load_data(&file_path).unwrap();
@@ -186,11 +176,11 @@ fn main() {
             .unwrap()
             .progress_chars("█▁"),
     );
-    let progress_bar_nodes_counter = Arc::new(AtomicUsize::new(0));
+    //let progress_bar_nodes_counter = Arc::new(AtomicUsize::new(0));
     //let progress_bar_images_counter = Arc::new(AtomicUsize::new(0));
 
     progress_bar_images.set_position(0);
-    progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
+    progress_bar_nodes.set_position(0);
 
     let network_timer = Instant::now();
 
@@ -216,17 +206,21 @@ fn main() {
                             .collect();
 
                         for node in model_to_run {
-                            let start_node = Instant::now();
                             let output = node.execute(&inner_inputs)
                                 .expect("Node execution failed"); // Consider handling errors more gracefully
-                            let run_time_node = start_node.elapsed();
-                            progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
-                            progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
+                            //progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
+                            progress_bar_nodes.inc(1);
                             if verbose {
-                                progress_bar_nodes.println(node.to_string(&inner_inputs, &output, &run_time_node, index.to_string()));
+                                progress_bar_nodes.suspend(||{
+                                    println!("{}", node.to_string(&inner_inputs, &output, index.to_string()));
+                                });
+                                //progress_bar_nodes.println(node.to_string(&inner_inputs, &output, index.to_string()));
                             }
                             else{
-                                progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
+                                progress_bar_nodes.suspend(||{
+                                    println!("{}", format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
+                                });
+                                //progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
                             }
                             for (i, out) in output.iter().enumerate() {
                                 inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
@@ -252,18 +246,22 @@ fn main() {
             while node_index < model_read.len() { // Use iter instead of iter_mut if possible
                 // Update progress bar safely (if necessary)
                 let node = &model_read[node_index];
-                let node_timer = Instant::now();
                 let output = node.execute(&inputs)
                     .expect("Node execution failed"); // Handle the error properly
-                let run_time_node = node_timer.elapsed();
-                progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
+                //progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
                 //SeqCst guarantees that all threads see all sequentially consistent operations in the same order.
-                progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
-                if verbose{
-                    progress_bar_nodes.println(node.to_string(&inputs, &output, &run_time_node, index.to_string()));
+                progress_bar_nodes.inc(1);
+                if verbose {
+                    progress_bar_nodes.suspend(||{
+                        println!("{}", node.to_string(&inputs, &output, index.to_string()));
+                    });
+                    //progress_bar_nodes.println(node.to_string(&inner_inputs, &output, index.to_string()));
                 }
                 else{
-                    progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
+                    progress_bar_nodes.suspend(||{
+                        println!("{}", format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
+                    });
+                    //progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
                 }
 
                 for (i, out) in output.iter().enumerate() {
@@ -285,17 +283,21 @@ fn main() {
                             .collect();
 
                         for node in model_to_run {
-                            let start_node = Instant::now();
                             let output = node.execute(&inner_inputs)
                                 .expect("Node execution failed"); // Consider handling errors more gracefully
-                            let run_time_node = start_node.elapsed();
-                            progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
-                            progress_bar_nodes.set_position(progress_bar_nodes_counter.load(Ordering::SeqCst) as u64);
-                            if verbose{
-                                progress_bar_nodes.println(node.to_string(&inner_inputs, &output, &run_time_node, index.to_string()));
+                            //progress_bar_nodes_counter.fetch_add(1, Ordering::SeqCst);
+                            progress_bar_nodes.inc(1);
+                            if verbose {
+                                progress_bar_nodes.suspend(||{
+                                    println!("{}", node.to_string(&inner_inputs, &output, index.to_string()));
+                                });
+                                //progress_bar_nodes.println(node.to_string(&inner_inputs, &output, index.to_string()));
                             }
                             else{
-                                progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
+                                progress_bar_nodes.suspend(||{
+                                    println!("{}", format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
+                                });
+                                //progress_bar_nodes.println(format!("🚀 Executed node: {} {} for image: {}", node.get_op_type().bold(), node.get_node_name().bold(), index.to_string().bold()));
                             }
                             for (i, out) in output.iter().enumerate() {
                                 inner_inputs.insert(node.get_output_names()[i].clone(), out.to_owned());
@@ -378,7 +380,7 @@ fn main() {
 
     let accuracy = compute_accuracy(&predictions, &ground_truth_labels).unwrap();
 
-    print_results(&chosen_model, &file_paths, &predictions, &ground_truth_labels, &error_rate, &accuracy);
+    print_results(chosen_model, &file_paths, &predictions, &ground_truth_labels, &error_rate, &accuracy);
 
 }
 

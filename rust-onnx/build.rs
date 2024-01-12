@@ -3,22 +3,19 @@ use std::path::PathBuf;
 
 fn main() {
 
-    let folder_path = PathBuf::from("src").join("parser_code");
+    let folder_path = PathBuf::from("src").join("onnx_parser").join("protoc_generated");
 
-    if let Err(e) = fs::create_dir_all(&folder_path){
-        eprintln!("Error creating folder: {}", e);
-        return;
-    }
+    fs::create_dir_all(&folder_path).expect(&format!("Failed to create directory {}", folder_path.to_str().unwrap()));
 
-    println!("Created folder: {}", folder_path.to_string_lossy());
+    println!("Created folder: {}", folder_path.to_str().unwrap());
 
     let onnx_ml_proto3_path = PathBuf::from("protos").join("onnx-ml.proto3");
     let onnx_data_proto3_path = PathBuf::from("protos").join("onnx-data.proto3");
     let onnx_operators_ml_proto3_path = PathBuf::from("protos").join("onnx-operators-ml.proto3");
 
-    //Create .rs files in folder src/parser_code
+    //Create .rs files in folder src/onnx_parser/protoc_generated
     protobuf_codegen::Codegen::new()
-        // Use `protoc` parser
+        // Use `protoc` onnx_parser
         .protoc()
         // Use `protoc-bin-vendored` bundled protoc command
         .protoc_path(&protoc_bin_vendored::protoc_bin_path().unwrap())

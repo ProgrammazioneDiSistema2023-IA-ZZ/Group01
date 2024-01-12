@@ -26,7 +26,7 @@
   # RustONNX: Gotta Infer 'em All!
 
   <p align="center">
-  Rust-based ONNX inference engine with a .onnx and .pb parser under the hood. Delivered with a set of validated operators, neural networks and inputs. Easy to add new operators to extend model compatibility. Dataset (images & labels) serialization can be used to extend the set of available inputs. Features Rayon-powered image-based and intra-network parallelization, Python bindings.
+  Rust-based ONNX inference engine with a .onnx and .pb parser under the hood. Delivered with a set of validated operators, models and datasets. Easy to add new operators to extend model compatibility. Images & labels serialization can be used to extend the set of available datasets. Features Rayon-powered image-based and intra-network parallelization, Python bindings.
     <br/>
     TODO- Screenshot here
     <!--screenshot here-->
