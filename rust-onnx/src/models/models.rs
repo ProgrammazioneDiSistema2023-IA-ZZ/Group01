@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::path::{PathBuf};
 use crate::datasets::label_mappings::{IMAGENET_CLASSES, MNIST_CLASSES};
 use crate::datasets::images_serialization::{serialize_imagenet_to_pb, serialize_mnist_image_to_pb};

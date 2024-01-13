@@ -4,7 +4,7 @@ use ndarray::ArrayD;
 use std::collections::HashMap;
 use crate::onnx_parser::protoc_generated::onnx_ml_proto3::NodeProto;
 
-
+#[derive(Clone)]
 pub struct ReLU {
     op_type: String,
     node_name: String,
@@ -55,6 +55,10 @@ impl Operator for ReLU {
 
     fn get_initializers_arr(&self) -> Vec<Initializer> {
         vec![]
+    }
+
+    fn clone_box(&self) -> Box<dyn Operator> {
+        Box::new(self.clone())
     }
 
 }

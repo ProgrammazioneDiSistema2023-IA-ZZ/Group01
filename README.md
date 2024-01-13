@@ -100,7 +100,19 @@ Please, be aware that new models may be more performant and that old models, inc
 
 ### Supported operators
 
-TODO
+| Operator             | Version | Description                                                                                                                                                                                                                                                                                               | 
+|----------------------|:-------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Add                  |   14    | Performs element-wise binary addition (with Numpy-style broadcasting support).                                                                                                                                                                                                                            |
+| BatchNorm            |   14    | Carries out batch normalization as described in the paper https://arxiv.org/abs/1502.03167.                                                                                                                                                                                                               |
+| Convolution          |   11    | The convolution operator performs the convolution given an input tensor and a filter, and computes the output.                                                                                                                                                                                            |
+| Flatten              |   13    | Flattens the input tensor into a 2D matrix. If input tensor has shape (d_0, d_1, … d_n) then the output will have shape (d_0 X d_1 … d_(axis-1), d_axis X d_(axis+1) … X dn).                                                                                                                             |
+| Gemm                 |   13    | General Matrix multiplication: https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms#Level_3 <br>A’ = transpose(A) if transA else A B’ = transpose(B) if transB else B<br>Compute Y = alpha * A’ * B’ + beta * C                                                                                 |
+| GlobalAveragePooling |    1    | GlobalAveragePool given an input tensor X applies average pooling across the values in the same channel.                                                                                                                                                                                                  |
+| MatMul               |   13    | Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html                                                                                                                                                                              |
+| MaxPool              |   12    | MaxPool given an input tensor X applies max pooling across the tensor according to kernel sizes, stride sizes, and pad lengths. max pooling consisting of computing the max on all values of a subset of the input tensor according to the kernel size and downsampling the data into the output tensor Y |
+| ReLU                 |   14    | Relu takes one input data (Tensor) and produces one output data (Tensor) where the rectified linear function, y = max(0, x), is applied to the tensor elementwise.                                                                                                                                        |
+| Reshape              |   14    | Reshape the input tensor similar to numpy.reshape. First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.                                                                                                                       |
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -157,12 +169,139 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Usage of Python Binding
+To ensure a smooth testing experience of our Python Binding, we advise using a virtual environment. 
+Below are the instructions to set up and activate a Python virtual environment. After setting up the environment, 
+you will be able to run the example file we have provided to demonstrate the usage of our binding.
+1. Create the virtual environment:
+    ```
+    cd rust_onnx
+    python3 -m venv ./py_rust_onnx/python-binding/
+    ```
+2. Activate the virtual environment:
+   - For Linux and macOS:
+       ```
+        source py_rust_onnx/python-binding/bin/activate
+       ```
+   - For Windows:
+     ```
+     .\py_rust_onnx\python-binding\Scripts\activate
+     ```
+3. Install the needed packages:
+    ```
+    pip install maturin numpy
+    ```
+4. Build the Rust code and install it:
+    ```
+    maturin develop --release
+    ```
+5. Rust the test code provided by us:
+    ```
+    python3 ./py_rust_onnx/test.py
+    ```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 ## Project structure
+TODO with tree command on Windows
+```
+├── src
+│   ├── controller
+│   │   ├── **/*.css
+│   ├── views
+│   ├── model
+│   ├── index.js
+├── public
+│   ├── css
+│   │   ├── **/*.css
+│   ├── images
+│   ├── js
+│   ├── index.html
+├── dist (or build
+├── node_modules
+├── package.json
+├── package-lock.json
+└── .gitignore
+```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Adding a new dataset
+
+To insert a new dataset in our project you have to provide the mapping of the labels in the file `src/datasets/label_mapping.rs`.
+Poi non ho capito più nulla :(
+TODO
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Adding a new operation
+
+To integrate a new operation into our system, please follow these steps:
+
+### Steps for Integration
+
+1. **Create a New File**: Generate a new Rust source file (`.rs`) within the `operators` directory. This file will contain your operation's implementation.
+
+2. **Export the Operation**: Update the `mod.rs` file in the `operators` folder to export your new operation, making it accessible to other parts of the project.
+
+3. **Define the TensorProto Conversion**: Implement the conversion logic from `TensorProto` to the newly created operation struct. This ensures that the operation can interact with tensor data correctly.
+
+### Operator Trait Requirements
+
+Each operator must adhere to the `Operator` trait, which outlines essential functionalities. Your operator should implement the following methods:
+
+- `execute()`: Defines the core logic for the operation.
+- `get_inputs()`: Returns a `Vec<String>` listing the names of the inputs.
+- `get_output_names()`: Provides a `Vec<String>` with the names of the outputs.
+- `get_node_name()`: Gives back a `String` with the operation's node name.
+- `get_op_type()`: Delivers a `String` specifying the operation's type.
+- `get_initializers_arr()`: Retrieves a `Vec`, which contains any initializers associated with the node.
+- `clone_box()`: This method is necessary for creating Python bindings.
+
+By following these specifications, you ensure that the new operation is fully compatible with our system's architecture.
+
+
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Inserting a New Model into the Project
+
+To add a new model to our project, follow these organized steps carefully:
+
+### Step 1: Create Model Directory
+
+- Navigate to the `models` directory in the project.
+- Create a new folder named after your model.
+
+### Step 2: Add ONNX Model and Test Data
+
+Inside your model's folder, you should include:
+
+- The ONNX model file named `model.onnx`.
+- A subfolder named `test_data_set_0` which will contain the following files provided by ONNX:
+    - `input_0.pb`: The input protobuf file.
+    - `output_0.pb`: The output protobuf file.
+
+### Step 3: Include Custom Dataset (Optional)
+
+- Optionally, you can add a custom dataset within a new folder of your chosen name.
+- Ensure this folder contains subfolders named with numerical values representing labels in numeric format.
+- Place the images corresponding to each category within their respective labeled folders.
+
+### Step 4: Register the Model in the Project
+
+- Open the file `src/models/models.rs`.
+- Update the constant `MODELS_NAMES` with the name of your new model.
+- Add a new variant to the `Model` enum representing your model.
+- Implement the associated methods required by the new enum alternative.
+
+By following these steps, you'll successfully integrate a new model into our system's framework.
 
 TODO
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 
 ## Contributing

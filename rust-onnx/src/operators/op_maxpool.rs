@@ -4,6 +4,7 @@ use ndarray::{ArrayD, IxDyn};
 use std::collections::HashMap;
 use crate::onnx_parser::protoc_generated::onnx_ml_proto3::NodeProto;
 
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct MaxPool {
     op_type: String,
@@ -172,5 +173,9 @@ impl Operator for MaxPool {
 
     fn get_initializers_arr(&self) -> Vec<Initializer> {
         vec![]
+    }
+
+    fn clone_box(&self) -> Box<dyn Operator> {
+        Box::new(self.clone())
     }
 }

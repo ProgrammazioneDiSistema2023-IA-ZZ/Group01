@@ -389,5 +389,9 @@ impl Operator for Conv{
     fn get_initializers_arr(&self) -> Vec<Initializer> {
         self.initializers.clone()
     }
+
+    fn clone_box(&self) -> Box<dyn Operator> {
+        Box::new(self.clone())
+    }
 }
 

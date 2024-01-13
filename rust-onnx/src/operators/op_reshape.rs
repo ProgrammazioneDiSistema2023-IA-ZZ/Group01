@@ -4,6 +4,7 @@ use ndarray::{Array, ArrayD, IxDyn};
 use std::collections::HashMap;
 use crate::onnx_parser::protoc_generated::onnx_ml_proto3::NodeProto;
 
+#[derive(Clone)]
 pub struct Reshape {
     op_type: String,
     node_name: String,
@@ -149,6 +150,10 @@ impl Operator for Reshape {
         else{
             self.shape_initializer.clone()
         }
+    }
+
+    fn clone_box(&self) -> Box<dyn Operator> {
+        Box::new(self.clone())
     }
 }
 

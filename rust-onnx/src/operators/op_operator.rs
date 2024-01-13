@@ -70,4 +70,6 @@ pub trait Operator: Send + Sync {
     fn get_node_name(&self) -> String;
     fn get_op_type(&self) -> String;
     fn get_initializers_arr(&self) -> Vec<Initializer>;
+
+    fn clone_box(&self) -> Box<dyn Operator>;
 }
