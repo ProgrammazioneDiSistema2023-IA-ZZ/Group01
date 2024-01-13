@@ -1,5 +1,4 @@
-use ndarray::{ArrayD, Axis};
-use std::collections::{HashMap, HashSet};
+use ndarray::{ArrayBase, ArrayD, Axis, IxDyn, OwnedRepr};
 use std::fs::File;
 use std::io::Write;
 use prettytable::{format, row, Row, Table, Cell, Attr};
@@ -8,10 +7,9 @@ use std::path::PathBuf;
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use crate::models::models::Model;
-use crate::operators::op_operator::Operator;
 use crate::utils::errors::OnnxError;
 
-pub fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
+fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
     matrix
         .axis_iter(Axis(0)) // Iterate over rows
         .map(|row| {
@@ -24,104 +22,7 @@ pub fn argmax_per_row(matrix: &ArrayD<f32>) -> Vec<usize> {
         .collect()
 }
 
-pub fn find_dependencies(model_read: &mut Vec<Box<dyn Operator>>)
-                     -> HashMap<String, Vec<Vec<String>>>{
-    let mut node_outputs = HashMap::new();
-    let mut join_nodes = HashSet::new();
-
-    for node in model_read.iter() {
-        let node_name = node.get_node_name();
-        node_outputs.entry(node_name.clone()).or_insert(vec![]);
-
-        let input_names = node.get_inputs();
-        if input_names.len() > 1 {
-            join_nodes.insert(node_name.clone());
-        }
-        for input in input_names {
-            for n in model_read.iter(){
-                let outputs = n.get_output_names();
-                let n_name = n.get_node_name();
-                if outputs.contains(&input){
-                    node_outputs.entry(n_name.clone()).or_default().push(node_name.clone());
-                }
-                if n_name == node_name{
-                    break;
-                }
-            }
-        }
-    }
-
-    let mut fork_nodes_for_parallelization = HashSet::new();
-    let mut fork_nodes = HashSet::new();
-
-    for (node_name, outputs) in node_outputs.iter(){
-        if outputs.iter().filter(|output| !join_nodes.contains(*output)).count()>1{ //it's a fork node
-            //with at least two branches with operations that can be run in parallel
-            fork_nodes_for_parallelization.insert(node_name.clone());
-        }
-        if outputs.iter().count()>1{
-            fork_nodes.insert(node_name.clone());
-        }
-    }
-
-    let mut paths = HashMap::new();
-    if fork_nodes.len()!=join_nodes.len(){ //there are some branches at the beginning for which there is a join node
-        //but not a fork node, like mnist-12
-        let number_of_branches = join_nodes.len()-fork_nodes.len()+1;
-        let mut index = 0;
-        paths.insert("START".to_string(), Vec::new());
-        paths.entry("START".to_string()).and_modify(|v| v.push(Vec::new()));
-        for node in model_read.iter(){
-            let node_name = node.get_node_name();
-            paths.entry("START".to_string()).and_modify(|v| v[index].push(node_name.clone()));
-            if node_outputs.get(&node_name).unwrap().iter().any(|output| join_nodes.contains(output)){
-                index+=1;
-                if index==number_of_branches{
-                    break;
-                }
-                paths.entry("START".to_string()).and_modify(|v| v.push(Vec::new()));
-            }
-        }
-    }
-
-    let mut current_sub_path = Vec::new();
-    let mut start_path: Option<String> = None;
-
-    for node in model_read {
-        let node_name = node.get_node_name();
-
-        // Check if the node is a fork node
-        if fork_nodes_for_parallelization.contains(&node_name) {
-            start_path = Some(node_name.clone());
-        } else if let Some(sp) = &start_path {
-            // Check if the node is a join node
-            if join_nodes.contains(&node_name) {
-                start_path = None;
-            } else {
-                // Add node to the current branch
-                current_sub_path.push(node_name.clone());
-                if node_outputs.get(&node_name).unwrap().iter().any(|v| join_nodes.contains(v)) {
-                    //salva il path corrente e resettalo
-                    if !current_sub_path.is_empty() {
-                        paths.entry(sp.clone()).or_insert_with(Vec::new).push(current_sub_path.clone());
-                        current_sub_path.clear();
-                    }
-                }
-            }
-        }
-    }
-
-    // println!("Number of fork nodes: {}", paths.keys().len());
-    // for (start, path_nodes) in &paths {
-    //     println!();
-    //     println!("Fork node: {}", start);
-    //     println!("Path: {:?}", path_nodes);
-    // }
-
-    paths
-}
-
-pub fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxError> {
+fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxError> {
 
     if vec1.is_empty() || vec2.is_empty() {
         return Err(OnnxError::EmptyContainer("Vectors cannot be empty.".to_string()));
@@ -135,7 +36,7 @@ pub fn compute_accuracy(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxError
     Ok(count  as f32/vec1.len() as f32)
 }
 
-pub fn compute_error_rate(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxError> {
+fn compute_error_rate(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxError> {
 
     if vec1.is_empty() || vec2.is_empty() {
         return Err(OnnxError::EmptyContainer("Vectors cannot be empty.".to_string()));
@@ -149,7 +50,7 @@ pub fn compute_error_rate(vec1: &[usize], vec2: &[usize]) -> Result<f32, OnnxErr
     Ok(count  as f32/vec1.len() as f32)
 }
 
-pub fn display_model_info(model_name: &str, number_of_nodes: usize) {
+pub fn display_model_info(model_name: &str, number_of_nodes: usize, number_of_nodes_in_parallel: usize) {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(Row::new(vec![
@@ -165,19 +66,33 @@ pub fn display_model_info(model_name: &str, number_of_nodes: usize) {
         "Total number of nodes",
         number_of_nodes,
     ]);
+    table.add_row(row![
+       "Number of nodes that will run in parallel",
+        number_of_nodes_in_parallel
+    ]);
+    println!("\n🟢 All good, starting execution...\n");
     table.printstd();
-    println!("Execution Starting...\n");
+    println!();
 }
 
-pub fn print_results (model: Model, files: &Vec<PathBuf>, predictions: &Vec<usize>, ground_truth: &Vec<usize>, error_rate: &f32, accuracy: &f32) {
+pub fn print_results (model: Model, files: &Vec<PathBuf>, final_output: &ArrayBase<OwnedRepr<f32>, IxDyn>, label_stack: &ArrayD<f32>) {
     const MAX_ELEMENTS : usize = 50;
     const FILE_NAME : &str = "results.txt";
-    let table = setup_results_table(&model, files, predictions, ground_truth, predictions.len());
+
+    let predictions = argmax_per_row(&final_output);
+
+    let ground_truth = argmax_per_row(&label_stack);
+
+    let error_rate = compute_error_rate(&predictions, &ground_truth).unwrap();
+
+    let accuracy = compute_accuracy(&predictions, &ground_truth).unwrap();
+
+    let table = setup_results_table(&model, files, &predictions, &ground_truth, predictions.len());
 
     if files.len() <= MAX_ELEMENTS {
         println!("Results:\n\n{}", table.to_string());
     } else {
-        let reduced_table = setup_results_table(&model, files, predictions, ground_truth, MAX_ELEMENTS);
+        let reduced_table = setup_results_table(&model, files, &predictions, &ground_truth, MAX_ELEMENTS);
         println!("The dataset size is too big for all the results to be printed in the console.\nTo improve \
         readability, the results have been stored in the file \"{}\".\n\
         However, here is a sneak peek to the first {} results:\n\n{}", &FILE_NAME, MAX_ELEMENTS, reduced_table.to_string());

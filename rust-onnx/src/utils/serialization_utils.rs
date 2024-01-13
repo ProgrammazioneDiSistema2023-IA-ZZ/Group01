@@ -8,17 +8,11 @@ use std::path::{PathBuf};
 use crate::models::models::Model;
 use crate::utils::shared_constants::SUPPORTED_IMAGE_FORMATS;
 
-pub fn serialize_custom_dataset(chosen_model: &Model, folder_name: &String){
+pub fn serialize_custom_dataset (chosen_model: &Model, folder_name: &String){
     println!("\n🤞 Serializing your custom dataset into .pb files...");
     let custom_dataset_path = PathBuf::from("models").join(chosen_model.as_str()).join(folder_name);
     let custom_dataset_serialized_path = PathBuf::from("models").join(chosen_model.as_str())
         .join(folder_name.clone() + "_serialized");
-    serialize_images(&custom_dataset_path, &custom_dataset_serialized_path, chosen_model);
-    println!("✅  Custom dataset successfully serialized!");
-}
-
-fn serialize_images (custom_dataset_path: &PathBuf, custom_dataset_serialized_path: &PathBuf, chosen_model: &Model){
-
     if custom_dataset_serialized_path.exists() && custom_dataset_serialized_path.is_dir(){
         fs::remove_dir_all(&custom_dataset_serialized_path).unwrap();
     }
@@ -53,6 +47,7 @@ fn serialize_images (custom_dataset_path: &PathBuf, custom_dataset_serialized_pa
             serialize_label(label, label_pb_path, img_name, num_classes);
         }
     }
+    println!("✅  Custom dataset successfully serialized!");
 }
 
 

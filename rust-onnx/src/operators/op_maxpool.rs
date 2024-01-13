@@ -35,11 +35,11 @@ impl MaxPool {
         for attribute in &node.attribute {
             match attribute.name.as_str() {
                 "ceil_mode" => ceil_mode = Some(attribute.i),
-                "strides" => strides = Some(attribute.ints.iter().map(|&i| i as i64).collect()),
-                "kernel_shape" => kernel_shape = Some (attribute.ints.iter().map(|&i| i as i64).collect()),
+                "strides" => strides = Some(attribute.ints.clone()),
+                "kernel_shape" => kernel_shape = Some (attribute.ints.clone()),
                 "dilations" => dilations = {
-                    Some(attribute.ints.iter().map(|i| *i as i64).collect::<Vec<i64>>()) },
-                "pads" => pads = Some ( attribute.ints.iter().map(|i| *i as i64).collect::<Vec<i64>>()),
+                    Some(attribute.ints.clone()) },
+                "pads" => pads = Some ( attribute.ints.clone()),
                 "storage_order" => storage_order = Some(attribute.i),
                 // Handle other attributes
                 _ => {}

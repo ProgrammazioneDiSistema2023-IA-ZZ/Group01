@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap};
 use std::fs;
 use std::path::PathBuf;
 use byteorder::{ByteOrder, LittleEndian};
@@ -10,7 +10,7 @@ use crate::operators::op_operator::Operator;
 use crate::operators::operators::create_operator;
 use crate::utils::errors::OnnxError;
 
-pub fn load_model(file_path: &PathBuf) -> (Vec<Box<dyn Operator>>, String, String) {
+pub fn load_model(file_path: &PathBuf) -> (HashMap<String,Box<dyn Operator>>, String, String) {
     println!("🤞 Loading the model from .onnx file...");
     let model_bytes = fs::read(file_path).expect("Failed to read .onnx file.");
     let mut model = ModelProto::new();
@@ -23,7 +23,7 @@ pub fn load_model(file_path: &PathBuf) -> (Vec<Box<dyn Operator>>, String, Strin
     let input_name = model.graph.input[0].name.clone();
     let final_layer_name = model.graph.output[0].name.clone();
     let mut initializers: HashMap<String, ArrayD<f32>> = read_initializers(&model.graph.initializer).unwrap();
-    let model_read = model_proto_to_struct(&model, &mut initializers);
+    let model_read = model_proto_to_hashmap(&model, &mut initializers);
 
     println!("✅  ONNX model successfully loaded!");
 
@@ -72,17 +72,17 @@ fn read_initializers(model_initializers: &[TensorProto] ) -> Result<HashMap<Stri
     Ok(initializer_set)
 }
 
-fn model_proto_to_struct(model: &ModelProto, initializer_set: &mut HashMap<String, ArrayD<f32>>) ->Vec<Box<dyn Operator>>{
-    let mut model_vec: Vec<Box<dyn Operator>> = Vec::new();
+fn model_proto_to_hashmap(model: &ModelProto, initializer_set: &mut HashMap<String, ArrayD<f32>>) ->HashMap<String, Box<dyn Operator>>{
+    let mut model_hm: HashMap<String, Box<dyn Operator>> = HashMap::new();
 
     if let Some(graph) = model.graph.as_ref() {
 
         // Iterate through the nodes in the graph
         for node in &graph.node {
-            model_vec.push(create_operator(node, initializer_set).unwrap())
+            model_hm.insert(node.name.clone(),  create_operator(node, initializer_set).unwrap());
         }
     }
-    model_vec
+    model_hm
 }
 
 fn load_data(file_path: &PathBuf) -> Result<ArrayD<f32>, OnnxError> {

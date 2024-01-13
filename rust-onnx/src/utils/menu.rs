@@ -16,8 +16,8 @@ fn print_intro() {
     - ⚙️ Rust-based ONNX inference engine.
     - 🥷 Under the hood .onnx and .pb parser.
     - 📦 Delivered with a set of validated operators, models and datasets.
-    - ➕  Easy to add new operators to extend model compatibility.
-    - 🖼️Images & labels serialization to extend the set of available datasets.
+    - ➕ Easy to add new operators to extend model compatibility.
+    - 🖼️ Images & labels serialization to extend the set of available datasets.
     - 🚀 Rayon-powered image-based and intra-network parallelization.
  ----------------------------------------------------------------------------------------------------------------------------------------------\n";
 

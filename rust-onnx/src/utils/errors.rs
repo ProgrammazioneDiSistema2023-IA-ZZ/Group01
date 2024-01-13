@@ -11,6 +11,8 @@ pub enum OnnxError{
 
     EmptyContainer(String),
 
-    UnsupportedOperator(String)
+    UnsupportedOperator(String),
+
+    RuntimeError(String),
 
 }
