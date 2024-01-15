@@ -151,6 +151,11 @@ Let's see the flow when executing our RustONNX.
     <br/>
     After the table, error rate and accuracy will be printed too, also in the results.txt file.
 </p>
+<p align="center">
+    <img src="images/verbose.png" alt="Verbose" style="border-radius: 10px;" />
+    <br/>
+    Now, just to give you a hint, this is what the execution in verbose mode looks like. As you can see, the difference with the non-verbose mode is that here also the names and the shapes of inputs, initializers and outputs are displayed in a pretty and colorful table.
+</p>
 
 
 

@@ -16,7 +16,7 @@ Cargo.lock
 .idea/
 **/.idea/
 
-# parser_code modules that are generated at build time
+# protoc_generated modules that are generated at build time
 rust-onnx/src/onnx_parser/protoc_generated
 
 #python venv
