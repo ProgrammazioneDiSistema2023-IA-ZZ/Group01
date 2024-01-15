@@ -1,24 +1,4 @@
-<a name="readme-top"></a>
-
-
-
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
--->
-<!--[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url] -->
-
-
-
-<!-- PROJECT LOGO -->
+<a id="top"></a>
 
 <div align="center">
   <img src="images/rustyOnix.png" alt="Logo" width="120" height="120">
@@ -26,285 +6,500 @@
   # RustONNX: Gotta Infer 'em All!
 
   <p align="center">
-  Rust-based ONNX inference engine with a .onnx and .pb parser under the hood. Delivered with a set of validated operators, models and datasets. Easy to add new operators to extend model compatibility. Images & labels serialization can be used to extend the set of available datasets. Features Rayon-powered image-based and intra-network parallelization, Python bindings.
+    <img src="images/rust_onnx.png" alt="Screenshot" style="border-radius: 10px;" />
     <br/>
-    TODO- Screenshot here
-    <!--screenshot here-->
+    <br/>
+    A fast and easy to extend Rust-based ONNX inference engine. ⚙️
 </p>
 </div>
 
-
-
-<!-- TABLE OF CONTENTS, TO DO AT THE END -->
 <details>
   <summary>Table of Contents</summary>
   <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
+    <li><a href="#about-the-project">❓ About the project</a>
       <ul>
-        <li><a href="#Why-this-logo-and-this-name-for-the-project">Why this logo and this name for the project</a></li>
-        <li><a href="#built-with">Built With</a></li>
+        <li><a href="#features">💡 Features</a></li>
+        <li><a href="#getting-started">🏃 Getting started</a>
+          <ul>
+            <li><a href="#cloning-the-repo">Cloning the repo</a></li>
+            <li><a href="#requirements">Requirements</a></li>
+            <li><a href="#build-run-rustonnx">Build & run RustONNX</a></li>
+          </ul>
+        </li>
+        <li><a href="#step-by-step-execution">👟 Step by step execution</a></li>
+        <li><a href="#project-structure">📂 Project structure</a></li>
+        <li><a href="#supported-models">🧠 Supported models</a></li>
+        <li><a href="#supported-operators">➗ Supported operators</a></li>
+        <li><a href="#supported-datasets">🖼️ Supported datasets</a></li>
+        <li><a href="#why-this-logo-and-this-name-for-the-project">🤔 Why this logo and this name for the project</a></li>
       </ul>
     </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
+    <li><a href="#the-core-of-rustonnx">🪬 The core of RustONNX</a>
+<ul>
+        <li><a href="#trait-operator">📌 Trait Operator</a>
+        </li>
+        <li><a href="#rayon-powered-parallelization">🚀 Rayon-powered parallelization</a></li>
+        </li>
+</ul>
+    <li><a href="#python-bindings">🐍 Python bindings</a>
       <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
+        <li><a href="#setup-of-python-binding">⚒️ Setup of Python binding</a></li>
+        <li><a href="#exported-functions">📩 Exported functions</a></li>
       </ul>
     </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <!-- <li><a href="#contributing">Contributing</a></li> -->
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
+    <li><a href="#how-to-extend-the-project">➕ How to extend the project</a>
+      <ul>
+        <li><a href="#extending-with-a-new-operator">➗ Extending with a new operator</a></li>
+        <li><a href="#extending-with-a-new-model">🧠 Extending with a new model</a></li>
+        <li><a href="#extending-with-a-new-dataset">🖼️ Extending with a new dataset</a></li>
+      </ul>
+    </li>
+    <li><a href="#useful-resources">🔗 Useful resources</a></li>
+    <li><a href="#contributing">🫂 Contributing</a></li>
+    <li><a href="#license">📜 License</a></li>
+    <li><a href="#authors">🤝 Authors</a></li>
+    <li><a href="#acknowledgments">🙏 Acknowledgments</a></li>
   </ol>
 </details>
 
+<h2 id="about-the-project">❓ About the project</h2>
+
+<h3 id="features">💡 Features</h3>
+
+* 🕹️ User-friendly menu based on the [dialoguer crate](https://docs.rs/dialoguer/latest/dialoguer/). 
+* 🥷 Under the hood .onnx and .pb parser to load ONNX models and protobuf data.
+* 📦 Delivered with a set of validated operators, models and datasets. 
+* 🦜 Network inference can be performed in both verbose and non-verbose mode.
+* ➕ Easy to add new operators to extend model compatibility.
+* 🖼️ Images & labels serialization to extend the set of available datasets.
+* 🚀 [Rayon](https://docs.rs/rayon/latest/rayon/)-powered image-based and intra-network parallelization.
+* 🐍 Python bindings for a complete Rusty experience.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h3 id="getting-started">🏃 Getting started</h3>
+
+<h4 id="cloning-the-repo">Cloning the repo</h4>
+
+We recommend [connecting to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh). 
+
+After the setup, it will be possible to clone the repo by doing:
+```
+git clone git@github.com:ProgrammazioneDiSistema2023-IA-ZZ/Group01.git
+```
+
+##### :warning: Attention to spaces in project path
+Depending on the Rust toolchain you decide to use, please be aware that you may experience build-time errors caused by spaces in the project path.
+
+To avoid any build issues, it's recommended to clone or place the project in a directory without spaces in its path.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h4 id="requirements">Requirements</h4>
+
+To run the project, you need to have [rustup](https://rustup.rs/) installed on your PC.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h4 id="build-run-rustonnx">Build & run RustONNX</h4>
+
+After cloning the repo, you can run our application by doing:
+```
+cd Group01/rust-onnx
+cargo run
+```
+If everything goes smoothly, an interactive menu will appear to let you decide how to perform inference.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h3 id="step-by-step-execution">👟 Step by step execution</h3>
+Let's see the flow when executing our RustONNX.
 
 
-<!-- ABOUT THE PROJECT -->
-## About The Project
+<p align="center">
+    <img src="images/step_1.png" alt="Step 1" style="border-radius: 10px;" />
+    <br/>
+    At first, you will see this interactive menu. Let's choose MNIST for simplicity.
+</p>
+<p align="center">
+    <img src="images/step_2.png" alt="Step 2" style="border-radius: 10px;" />
+    <br/>
+    We'll be asked for the dataset to perform the inference on. Let's go with a custom dataset.
+</p>
+<p align="center">
+    <img src="images/step_3.png" alt="Step 3" style="border-radius: 10px;" />
+    <br/>
+    We'll be asked for the folder name of the custom dataset. Let's use the provided custom dataset, so our input should be "dataset".
+</p>
+<p align="center">
+    <img src="images/step_4.png" alt="Step 4" style="border-radius: 10px;" />
+    <br/>
+    We'll be asked for the mode: verbose or non-verbose. We'll go with non-verbose this time.
+</p>
+<p align="center">
+    <img src="images/step_5.png" alt="Step 5" style="border-radius: 10px;" />
+    <br/>
+    RustONNX will keep us updated about the runtime status for the different operations (model loading, serialization if any, dataset loading, model optimization for intra-network parallel execution). At the end, some general info will be printed in a tabular way and the execution in non-verbose mode will start. 
+</p>
+<p align="center">
+    <img src="images/step_6.png" alt="Step 6" style="border-radius: 10px;" />
+    <br/>
+    When finished, the network will display some info: execution time and results for each input image. In this case, the limit of 50 images has been exceeded, so we can only see a sneak peek. The complete table has been stored in the results.txt file.
+</p>
+<p align="center">
+    <img src="images/step_7.png" alt="Step 7" style="border-radius: 10px;" />
+    <br/>
+    After the table, error rate and accuracy will be printed too, also in the results.txt file.
+</p>
 
-### Features
 
-TODO
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-### Why this logo and this name for the project
-We like playing with words.  
-Onix is a Pokémon whose name is fairly similar to ONNX, so we chose it for the logo. 
-On top of this, we made it rusty because our project is Rust based.  
-The name of the project, "RustONNX: Gotta Infer 'em All!", includes another reference 
-to the Pokémon series.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<h3 id="project-structure">📂 Project structure</h3>
 
-### Supported models
+Here is an overview of the project structure with the most important folders & files, along with some useful information.
+
+```
+Group01
+├───images                              //Assets for README.md
+└───rust-onnx
+    ├───models                          //Folder where supported models are located
+    │   ├───mnist-12
+    │   ├───mobilenet-v2-7
+    │   │   ├───dataset                 //Sample custom ImageNet-like dataset
+    │   │   │   ├───566                 //Each folder contains images associated with the label given by the folder name
+    │   │   │   ├───569
+    │   │   │   ├───571
+    │   │   │   ├───574
+    │   │   │   └───701
+    │   │   ├───dataset_serialized      //Generated at run-time via serialization on the sample custom dataset
+    │   │   ├───test_data_set_0         //Test dataset provided by ONNX
+    |   |   └───model.onnx              //.onnx file for the model
+    │   ├───resnet18-v1-7
+    │   └───resnet34-v2-7
+    ├───protos                          //.proto3 files used at build-time
+    ├───py_rust_onnx                    
+    │   ├───python-binding              //Python virtual environment folder generated while doing the setup for the binding
+    │   └───test.py                     //Python demo for binding
+    ├───src
+    │   ├───datasets                    //Dataset related functions and data structures
+    │   ├───models                      //Models related functions and data structures
+    │   ├───onnx_parser
+    │   │   ├───protoc_generated        //Generated at build-time using protoc. Parser modules.
+    │   │   └───parser.rs               //ONNX parser functions
+    │   ├───operators                   //Operators implementation
+    │   ├───utils                       //Generic utilities module (metrics, errors, menu, execution serialization, etc.)
+    │   │   ├───auxiliary_functions.rs
+    │   │   ├───errors.rs
+    │   │   ├───menu.rs                  
+    │   │   ├───run.rs
+    │   │   ├───serialization_utils.rs
+    │   │   └───shared_constants.rs
+    │   ├───lib.rs                      //Used for Python bindings
+    │   └───main.py         
+    ├───build.rs
+    ├───Cargo.lock
+    ├───Cargo.toml
+    └───results.txt                     //Generated at run-time. Execution results when the dataset has # images > 50
+```
+
+The folder `Group01/rust-onnx/src/operators/` should be your single-point-of-change-in-code (SPOCIC) when implementing new operators.  
+The folders `Group01/rust-onnx/src/models/` and `Group01/rust-onnx/src/datasets/` should be your SPOCICs when adding new models that are compatible with new datasets.
+
+The folder `Group01/rust-onnx/models/` is where ONNX models and datasets must reside.
+
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h3 id="supported-models">🧠 Supported models</h3>
+
+Reference: [ONNX Model Zoo](https://github.com/onnx/models)
 
 | Model name           | Description                                                                        | Version | Opset version |
 | -------------------- | ---------------------------------------------------------------------------------- | ------- | ------------- |
 | **mnist-12**         | Handwritten digits recognition model specifically designed for the MNIST dataset.  | N/A     | 12            |
 | **resnet18-v1-7**    | Image classification model with 18 layers for ImageNet-like datasets.              | 1       | 7             |
 | **resnet34-v2-7**    | Image classification model with 34 layers for ImageNet-like datasets.              | 2       | 7             |
-| **mobilenetv2-7**    | Efficient and lightweight image classification model for ImageNet-like datasets.   | 2       | 7             |
+| **mobilenet-v2-7**    | Efficient and lightweight image classification model for ImageNet-like datasets.   | 2       | 7             |
 
 #### :warning: ONNX Model Zoo is undergoing some changes
-During the development of this project, the ONNX Model Zoo was being expanded by incorporating additional models. Since new models had not been validated yet, the models supported by our _RustONNX: Gotta Infer 'em All!_ were taken from the set of _validated_ networks.
+During the development of this project, the [ONNX Model Zoo](https://github.com/onnx/models) was being expanded by incorporating additional models. Since new models had not been validated yet, the models supported by our RustONNX were taken from the set of _validated_ networks.
 
-Please, be aware that new models may be more performant and that old models, included the ones supported by our _RustONNX: Gotta Infer 'em All!_, may be deleted in future updates of the ONNX Model Zoo.
+Please, be aware that new models may be more performant and that old models, included the ones supported by our RustONNX, may be deleted in future updates of the ONNX Model Zoo.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-### Supported operators
+<h3 id="supported-operators">➗ Supported operators</h3>
+
+Reference: [ONNX Operators](https://onnx.ai/onnx/operators/)
 
 | Operator             | Version | Description                                                                                                                                                                                                                                                                                               | 
 |----------------------|:-------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Add                  |   14    | Performs element-wise binary addition (with Numpy-style broadcasting support).                                                                                                                                                                                                                            |
-| BatchNorm            |   14    | Carries out batch normalization as described in the paper https://arxiv.org/abs/1502.03167.                                                                                                                                                                                                               |
-| Convolution          |   11    | The convolution operator performs the convolution given an input tensor and a filter, and computes the output.                                                                                                                                                                                            |
-| Flatten              |   13    | Flattens the input tensor into a 2D matrix. If input tensor has shape (d_0, d_1, … d_n) then the output will have shape (d_0 X d_1 … d_(axis-1), d_axis X d_(axis+1) … X dn).                                                                                                                             |
-| Gemm                 |   13    | General Matrix multiplication: https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms#Level_3 <br>A’ = transpose(A) if transA else A B’ = transpose(B) if transB else B<br>Compute Y = alpha * A’ * B’ + beta * C                                                                                 |
-| GlobalAveragePooling |    1    | GlobalAveragePool given an input tensor X applies average pooling across the values in the same channel.                                                                                                                                                                                                  |
-| MatMul               |   13    | Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html                                                                                                                                                                              |
-| MaxPool              |   12    | MaxPool given an input tensor X applies max pooling across the tensor according to kernel sizes, stride sizes, and pad lengths. max pooling consisting of computing the max on all values of a subset of the input tensor according to the kernel size and downsampling the data into the output tensor Y |
+| BatchNorm            |   15    | Carries out batch normalization as described in the paper https://arxiv.org/abs/1502.03167.                                                                                                                                                                                                               |
+| Convolution          |   11    | The convolution operator performs the convolution given an input tensor and a filter, and computes the output. RustONNX provides the optimized version whose [Python implementation](https://github.com/onnx/onnx/blob/main/onnx/reference/ops_optimized/op_conv_optimized.py) can be found here.                                                                                                                                                                                    |
+| Flatten              |   21    | Flattens the input tensor into a 2D matrix. If input tensor has shape (d_0, d_1, … d_n) then the output will have shape (d_0 X d_1 … d_(axis-1), d_axis X d_(axis+1) … X dn).                                                                                                                             |
+| Gemm                 |   13    | General Matrix multiplication: https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms#Level_3<br>A’ = transpose(A) if transA else A <br>B’ = transpose(B) if transB else B<br>Compute Y = alpha * A’ * B’ + beta * C                                                                                 |
+| GlobalAveragePooling |    1    | Given an input tensor X, applies average pooling across the values in the same channel.                                                                                                                                                                                                  |
+| MatMul               |   13    | Matrix product that behaves like numpy.matmul: https://numpy.org/doc/stable/reference/generated/numpy.matmul.html                                                                                                                                                                         |
+| MaxPool              |   12    | Given an input tensor X, applies max pooling across the tensor according to kernel sizes, stride sizes, and pad lengths. Max pooling consists of computing the max on all values of a subset of the input tensor according to the kernel size and downsampling the data into the output tensor Y for further processing. |
 | ReLU                 |   14    | Relu takes one input data (Tensor) and produces one output data (Tensor) where the rectified linear function, y = max(0, x), is applied to the tensor elementwise.                                                                                                                                        |
-| Reshape              |   14    | Reshape the input tensor similar to numpy.reshape. First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.                                                                                                                       |
+| Reshape              |   21    | Reshape the input tensor similar to numpy.reshape. First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.    
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h3 id="supported-datasets">🖼️ Supported datasets</h3>
+
+For all models supported by RustONNX, two sample datasets are provided:
+
+1. a test dataset provided by ONNX, placed in `Group01/rust-onnx/models/<model_to_run>/test_data_set_0/`, with an image and a label already serialized into .pb files. The datasets validated by ONNX are especially useful when implementing new operators to extend the model compatibility of RustONNX.
+2. a custom dataset, placed in `Group01/rust-onnx/models/<model_to_run>/dataset/`, with .jpg, .jpeg or .png images to be serialized into .pb files, on which the network will be executed. Thanks to the serialization feature of RustONNX, you can smoothly perform inference on your own datasets. But if you're lazy and just want to test the feature, at least we've got you covered! 🦥
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h3 id="why-this-logo-and-this-name-for-the-project">🤔 Why this logo and this name for the project</h3>
+
+We like playing with words. 💭  
+Onix is a Pokémon whose name is fairly similar to ONNX, so we chose it for the logo. 
+On top of this, we made it rusty because our project is Rust based.  
+The name of the project, "RustONNX: Gotta Infer 'em All!", includes another reference to the Pokémon series.  
+Try to spot the other easter eggs! 🐣🐣
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h2 id="the-core-of-rustonnx">🪬 The core of RustONNX</h2>
+
+<h3 id="trait-operator">📌 Trait Operator</h3>
+
+The foundation of our project is encapsulated in the `Operator` trait, which outlines the essential capabilities each operator must provide.
+Here is the list of functions to implement.
+```rust 
+fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError>;
+``` 
+The execute contains the logic of the operator. It accepts a `&HashMap<String, ArrayD<f32>>` where the key is the name of the input of the network or the name of a previously executed node, and the value is the associated data/output. It returns a `Result<Vec<ArrayD<f32>>, OnnxError>`, which either yields a vector of multi-dimensional arrays 
+upon success or an OnnxError in case of failure.
+```rust 
+fn to_string(&self, inputs: &HashMap<String, ArrayD<f32>>, outputs: &Vec<ArrayD<f32>>, image_index: String) -> String;
+```
+This is used during the run in verbose mode. This method provides descriptive information about the inputs, initializers, outputs and the image being processed, for a specific node. It takes a `&HashMap<String, ArrayD<f32>>` and a `Vec<ArrayD<f32>>` as inputs, along with an 
+image index of type `String` that represents the index of the image that the model is currently performing inference on. It returns a `String` that can be printed on the console.
+
+```rust 
+fn get_inputs(&self) -> Vec<String>;
+fn get_output_names(&self) -> Vec<String>;
+fn get_node_name(&self) -> String;
+fn get_op_type(&self) -> String;
+fn get_initializers_arr(&self) -> Vec<Initializer>;
+``` 
+In this order:
+* Returns a `Vec<String>` listing the names of the inputs.
+* Provides a `Vec<String>` with the names of the operator's outputs. 
+* Returns a `String` containing the operator's node name.
+* Returns a `String` containing the type of the operator (e.g. "Conv").
+* Retrieves a `Vec`, which contains the initializers associated with the node, if any.
+
+```rust 
+fn clone_box(&self) -> Box<dyn Operator>;
+``` 
+This function is essential for Python bindings. It returns a `Box<dyn Operator>`, enabling the cloning of operator instances.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h3 id="rayon-powered-parallelization">🚀 Rayon-powered parallelization</h3>
+
+The [rayon crate](https://docs.rs/rayon/latest/rayon/) has been used to implement both an image-based and an intra-network parallelization.
+
+The image-based parallelization is trivial: when loading different .pb files, where each represents an image, the inference on these images will be performed in parallel. 
+
+As for the intra-network parallelization, different strategies could be investigated. Our RustONNX employs an initial processing of the network to optimize it for the subsequent execution. This process can be divided into two steps:
+1. creation of a graph structure using the [petgraph crate](https://docs.rs/petgraph/latest/petgraph/). This is done to ease the analysis of the network architecture;
+2. graph traversal to collect the nodes belonging to the same _layers_. A layer is a subset of nodes that don't show any dependencies and can, therefore, run in parallel. 
+
+Let's do an example. The `MNIST (opset-version=12)` architecture is:
+
+<p align="center">
+  <img src="images/mnist.png" alt="MNIST (opset-version=12"/>
+</p>
+
+The result of the initial optimization on `MNIST (opset-version=12)` is:
+
+```
+[["Convolution28", "Times212_reshape1"], ["Plus30"], ["ReLU32"], ["Pooling66"], ["Convolution110"], ["Plus112"], ["ReLU114"], ["Pooling160"], ["Times212_reshape0"], ["Times212"], ["Plus214"]]
+```
+
+Indeed, the nodes with names `Convolution28` and `Times212_reshape1` can run in parallel.
 
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-<!--### Built With
+<h2 id="python-bindings">🐍 Python bindings</h2>
 
-This section should list any major frameworks/libraries used to bootstrap your project. Leave any add-ons/plugins for the acknowledgements section.
+RustONNX provides Python bindings using the [maturin crate](https://docs.rs/maturin/latest/maturin/) and the [PyO3 library](https://pyo3.rs/v0.20.2/). This way, if you want to work in the Python environment you can still benefit from Rust's performance. 
 
-* [![Rust][Rust]][Rust-url]
-* [![CLion][CLion]][CLion-url]
+<h3 id="setup-of-python-binding">⚒️ Setup of Python binding</h3>
 
-TO-COMPLETE
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>-->
-
-## How to install
-
-TODO 
-
-### Prerequisites
-
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-
-### Installation
-
-_Below is an example of how you can instruct your audience on installing and setting up your app. This template doesn't rely on any external dependencies or services._
-
-1. Clone the repo
-   ```sh
-   git clone https://github.com/your_username_/Project-Name.git
-   ```
-2. Install NPM packages
-   ```sh
-   npm install
-
-
-### :warning: Attention to spaces in project path
-Depending on the Rust toolchain you decide to use, please be aware that you may experience build-time errors caused by spaces in the project path.
-
-To avoid any build issues, it's recommended to clone or place the project in a directory without spaces in its path.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<!-- USAGE EXAMPLES TODO -->
-## Usage
-
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
-
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Usage of Python Binding
-To ensure a smooth testing experience of our Python Binding, we advise using a virtual environment. 
-Below are the instructions to set up and activate a Python virtual environment. After setting up the environment, 
-you will be able to run the example file we have provided to demonstrate the usage of our binding.
+To ensure a smooth testing experience of our Python bindings, we advise using a virtual environment.
+Below are the instructions to set up and activate a Python virtual environment. After setting up the environment, you will be able to run the example file we have provided to demonstrate the usage of our binding.
 1. Create the virtual environment:
-    ```
-    cd rust_onnx
+    ```bash
+    cd rust-onnx
     python3 -m venv ./py_rust_onnx/python-binding/
     ```
 2. Activate the virtual environment:
-   - For Linux and macOS:
-       ```
-        source py_rust_onnx/python-binding/bin/activate
-       ```
-   - For Windows:
-     ```
-     .\py_rust_onnx\python-binding\Scripts\activate
-     ```
-3. Install the needed packages:
-    ```
+    - For Linux and macOS:
+        ```bash
+         source py_rust_onnx/python-binding/bin/activate
+        ```
+    - For Windows:
+      ```bash
+      .\py_rust_onnx\python-binding\Scripts\activate
+      ```
+3. Install the necessary packages:
+    ```bash
     pip install maturin numpy
     ```
 4. Build the Rust code and install it:
-    ```
+    ```bash
     maturin develop --release
     ```
-5. Rust the test code provided by us:
-    ```
+5. Run our Python script to test the binding:
+    ```bash
     python3 ./py_rust_onnx/test.py
     ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
+<h3 id="exported-functions">📩 Exported functions</h3>
 
-## Project structure
-TODO with tree command on Windows
-```
-├── src
-│   ├── controller
-│   │   ├── **/*.css
-│   ├── views
-│   ├── model
-│   ├── index.js
-├── public
-│   ├── css
-│   │   ├── **/*.css
-│   ├── images
-│   ├── js
-│   ├── index.html
-├── dist (or build
-├── node_modules
-├── package.json
-├── package-lock.json
-└── .gitignore
+The exported Rust functions are encapsulated in a module called `rust_onnx_lib`, that you can import as:
+```python
+    import rust_onnx_lib
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+Here are the 5 exported functions:
 
-## Adding a new dataset
 
-To insert a new dataset in our project you have to provide the mapping of the labels in the file `src/datasets/label_mapping.rs`.
-Poi non ho capito più nulla :(
-TODO
+```rust 
+    pub fn py_load_model(_py: Python, file_path_str: String) -> PyResult<(PyModel, String, String)> 
+```
+This function loads the ONNX model from the provided path and returns the model, the expected name for the input of the network and the name of the final node of the network.
+```rust 
+    pub fn py_serialize_custom_dataset(_py: Python, model_id: usize,  dir_path: String) -> PyResult<()>
+```
+If a custom dataset is selected to infer on, this function performs the serialization of images and labels into .pb files that can then be loaded by the framework.
+```rust 
+    pub fn py_load_images_and_labels(py: Python, model_id: usize, folder_name: String, test_dataset: bool) 
+                                     ->PyResult<(PyObject, PyObject, Vec<String>)>
+```
+This function retrieves and loads the images and the labels of the selected dataset, returning the images data, the labels data and a vec containing the file paths of the loaded .pb files.
+```rust 
+    pub fn py_run_model(py:Python, inputs: Vec<PyObject>, model: &PyModel, input_name: String, 
+                          verbose: bool, final_layer_name: String, id_model: usize)
+                                      -> PyResult<PyObject>
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+```
+This is the core function of the framework. It runs the model returning the final output of the network.
+```rust 
+    pub fn py_print_results (py: Python, model_id: usize, files: Vec<String>, model_output: PyObject,
+                                      labels: PyObject) -> PyResult<()>
+```
+This last function allows displaying the result of the network for each input image, along with global metrics, such as accuracy and error rate.
+  
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-## Adding a new operation
+<h2 id="how-to-extend-the-project">➕ How to extend the project</h2>
 
-To integrate a new operation into our system, please follow these steps:
+<h3 id="extending-with-a-new-operator">➗ Extending with a new operator</h3>
 
-### Steps for Integration
+To integrate a new operator into our framework, you can follow these steps into the SPOCIC directory `operators/`:
 
-1. **Create a New File**: Generate a new Rust source file (`.rs`) within the `operators` directory. This file will contain your operation's implementation.
+1. **Create a new file**: generate a new Rust source file (`.rs`) within the `operators/` directory. This file will contain your operator's implementation.
 
-2. **Export the Operation**: Update the `mod.rs` file in the `operators` folder to export your new operation, making it accessible to other parts of the project.
+2. **Export the operator**: update the `mod.rs` file in the `operators/` folder to export your new operator, making it accessible to other parts of the project.
 
-3. **Define the TensorProto Conversion**: Implement the conversion logic from `TensorProto` to the newly created operation struct. This ensures that the operation can interact with tensor data correctly.
+3. **Edit create_operator() function**: the function is located within the `operators.rs` file and you should add a new arm, for your new operator, to the existing match, as done for the others.
 
-### Operator Trait Requirements
 
 Each operator must adhere to the `Operator` trait, which outlines essential functionalities. Your operator should implement the following methods:
 
-- `execute()`: Defines the core logic for the operation.
-- `get_inputs()`: Returns a `Vec<String>` listing the names of the inputs.
-- `get_output_names()`: Provides a `Vec<String>` with the names of the outputs.
-- `get_node_name()`: Gives back a `String` with the operation's node name.
-- `get_op_type()`: Delivers a `String` specifying the operation's type.
-- `get_initializers_arr()`: Retrieves a `Vec`, which contains any initializers associated with the node.
-- `clone_box()`: This method is necessary for creating Python bindings.
+- `execute()`: defines the core logic for the operator;
+- `get_inputs()`: returns a `Vec<String>` listing the names of the inputs;
+- `get_output_names()`: provides a `Vec<String>` with the names of the outputs;
+- `get_node_name()`: gives back a `String` with the operator's node name;
+- `get_op_type()`: delivers a `String` specifying the operator's type;
+- `get_initializers_arr()`: retrieves a `Vec`, which contains any initializers associated with the node;
+- `clone_box()`: this method is necessary for creating Python bindings.
 
-By following these specifications, you ensure that the new operation is fully compatible with our system's architecture.
+By following these specifications, you ensure that the new operator is compatible with our framework.
 
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Inserting a New Model into the Project
+<h3 id="extending-with-a-new-model">🧠 Extending with a new model</h3>
 
 To add a new model to our project, follow these organized steps carefully:
 
-### Step 1: Create Model Directory
+#### Step 1: Create model directory
 
-- Navigate to the `models` directory in the project.
+- Navigate to `rust-onnx/models/`.
 - Create a new folder named after your model.
 
-### Step 2: Add ONNX Model and Test Data
+#### Step 2: Add ONNX model and test data
 
 Inside your model's folder, you should include:
 
-- The ONNX model file named `model.onnx`.
+- The ONNX model file renamed to `model.onnx`.
 - A subfolder named `test_data_set_0` which will contain the following files provided by ONNX:
-    - `input_0.pb`: The input protobuf file.
-    - `output_0.pb`: The output protobuf file.
+    - `input_0.pb`: the input protobuf file.
+    - `output_0.pb`: the output protobuf file.
 
-### Step 3: Include Custom Dataset (Optional)
+In a following section you'll know more about the possibility of adding a new dataset.
 
-- Optionally, you can add a custom dataset within a new folder of your chosen name.
-- Ensure this folder contains subfolders named with numerical values representing labels in numeric format.
-- Place the images corresponding to each category within their respective labeled folders.
-
-### Step 4: Register the Model in the Project
+#### Step 3: Register the model in RustONNX
+Here your SPOCIC is the `src/models/` folder.
 
 - Open the file `src/models/models.rs`.
 - Update the constant `MODELS_NAMES` with the name of your new model.
 - Add a new variant to the `Model` enum representing your model.
-- Implement the associated methods required by the new enum alternative.
+- Extend the methods of the Model enum implementation with the new alternative.
 
-By following these steps, you'll successfully integrate a new model into our system's framework.
+By following these steps, you'll successfully integrate a new model into our framework.
 
-TODO
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<h3 id="extending-with-a-new-dataset">🖼️ Extending with a new dataset</h3>
+
+It is possible to run a network on a new dataset, provided that the latter conforms to some rules:
+* the dataset folder must be placed under the folder of the model you want to run (e.g. `models/mnist-12/my-dataset/`);
+* the dataset folder must include subfolders whose names match the label, in numeric format, of the images they contain;
+* at least one subfolder that follows the naming convention mentioned above must reside within the dataset folder;
+* accepted image formats are .jpg, .jpeg or .png;
+* all subfolders following the expected naming convention (i.e. label in numeric format) must include at least a .jpg, .jpeg or .png file.
+
+For example, you may have a `"my-dataset/"` folder under `"resnet18-v1-7/"` with a `"207/"` subfolder that includes a .jpg, .jpeg or .png image of a golden retriever, since 207 is the label for a golden retriever in the ImageNet dataset.
+
+There are a few other things you must check before going wild with your images. Here your SPOCIC is the `src/datasets/` folder:
+* if the dataset classes are different from the ones in MNIST and ImageNet, you should provide the mapping of the labels in the file `label_mappings.rs`;
+* if you're also going to run a new model on these images, you may want to check the [ONNX Model Zoo](https://github.com/onnx/models/tree/main) documentation and, if required by the model, add a new serialization function for the new dataset. You can do it in the `images_serialization.rs` file.
 
 
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-## Contributing
+<h2 id="useful-resources">🔗 Useful resources</h2>
+
+* [ONNX Model Zoo](https://github.com/onnx/models/tree/main)
+* [ONNX Operators](https://onnx.ai/onnx/operators/)
+* [Netron](https://netron.app/)
+* [protobuf_codegen crate](https://docs.rs/protobuf-codegen/latest/protobuf_codegen/)
+* [ndarray crate](https://docs.rs/ndarray/latest/ndarray/)
+* [rayon crate](https://docs.rs/rayon/latest/rayon/) 
+* [maturin crate](https://docs.rs/maturin/latest/maturin/)
+* [PyO3 user guide](https://pyo3.rs/v0.20.2/)
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<h2 id="contributing">🫂 Contributing</h2>
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
 
@@ -319,20 +514,16 @@ If you have a suggestion that would make this better, please fork the repo and c
 
 Don't forget to give the project a star! Thanks again!
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
 
-<!-- LICENSE -->
-## License
+<h2 id="license">📜 License</h2>
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-
-
-<!-- CONTACT -->
-## Authors
+<h2 id="authors">🤝 Authors</h2>
 
 Claudio Tancredi (s292523):
 - [LinkedIn profile](https://www.linkedin.com/in/claudio-tancredi/) 
@@ -342,38 +533,13 @@ Francesca Russo (s287935):
 - [LinkedIn profile](https://www.linkedin.com/in/francesca-russo-1a4a2b228/)
 - Email: s287935@studenti.polito.it
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#top">back to top</a>)</p>
 
+<h2 id="acknowledgments">🙏 Acknowledgments</h2>
 
+RustONNX is delivered with sample custom datasets:
 
-<!-- ACKNOWLEDGMENTS TODO -->
-## Acknowledgments
+* for MNIST, images are sourced from [MNIST-JPG](https://github.com/teavanist/MNIST-JPG);
+* for models that work on ImageNet-like datasets, images are sourced from [Imagenette](https://github.com/fastai/imagenette) and are licensed under the Apache License 2.0.
 
-Use this space to list resources you find helpful and would like to give credit to. I've included a few of my favorites to kick things off!
-
-* [GitHub Emoji Cheat Sheet](https://www.webpagefx.com/tools/emoji-cheat-sheet)
-* [Img Shields](https://shields.io)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-<!--[contributors-shield]: https://img.shields.io/github/contributors/othneildrew/Best-README-Template.svg?style=for-the-badge
-[contributors-url]: https://github.com/othneildrew/Best-README-Template/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/othneildrew/Best-README-Template.svg?style=for-the-badge
-[forks-url]: https://github.com/othneildrew/Best-README-Template/network/members
-[stars-shield]: https://img.shields.io/github/stars/othneildrew/Best-README-Template.svg?style=for-the-badge
-[stars-url]: https://github.com/othneildrew/Best-README-Template/stargazers
-[issues-shield]: https://img.shields.io/github/issues/othneildrew/Best-README-Template.svg?style=for-the-badge
-[issues-url]: https://github.com/othneildrew/Best-README-Template/issues
-[license-shield]: https://img.shields.io/github/license/othneildrew/Best-README-Template.svg?style=for-the-badge
-[license-url]: https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group01/blob/main/LICENSE
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/othneildrew -->
-[product-screenshot]: images/screenshot.png
-[Rust]: https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white
-[Rust-url]: https://www.rust-lang.org/
-[CLion]: https://img.shields.io/badge/CLion-%231572B6?style=for-the-badge&logo=clion&logoColor=white
-[CLion-url]: https://www.jetbrains.com/clion/
+<p align="right">(<a href="#top">back to top</a>)</p>

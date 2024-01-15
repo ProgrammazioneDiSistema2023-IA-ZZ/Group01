@@ -8,16 +8,11 @@ mod utils;
 
 
 extern crate protobuf;
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use crate::operators::op_operator::Operator;
-
-use ndarray::{Array, ArrayD, IxDyn};
-
+use ndarray::{Array, ArrayD, IxDyn };
 use crate::onnx_parser::parser::{load_images_and_labels, load_model};
-
-
 use pyo3::prelude::*;
 use crate::models::models::Model;
 use numpy::{ PyArrayDyn, IntoPyArray};
@@ -31,7 +26,6 @@ pub struct PyModel{
 }
 
 impl PyModel {
-    // Method to get a reference to the vector
     pub fn clone_model(&self) -> HashMap<String, Box<dyn Operator>> {
         self.model.iter().map(|(name, op)
         | (name.clone(), op.clone_box())).collect()
@@ -40,11 +34,10 @@ impl PyModel {
 
 }
 
-//pub fn load_model(file_path: &PathBuf) -> (Vec<Box<dyn Operator>>, String, String)
+//pub fn load_model(file_path: &PathBuf) -> (HashMap<String,Box<dyn Operator>>, String, String)
 #[pyfunction]
 pub fn py_load_model(_py: Python, file_path_str: String) -> PyResult<(PyModel, String, String)> {
     let file_path = PathBuf::from(file_path_str);
-    println!("File Path: {:?}",&file_path);
     let (model, input_name, final_layer_name) = load_model(&file_path);
 
     let py_model = PyModel{model};
@@ -54,9 +47,9 @@ pub fn py_load_model(_py: Python, file_path_str: String) -> PyResult<(PyModel, S
 }
 
 //pub fn load_images_and_labels(chosen_model: &Model, folder_name: &String, test_dataset: &bool)
-// -> (Vec<ArrayBase<OwnedRepr<f32>, IxDyn>>, ArrayD<f32>, Vec<PathBuf>)
+    //-> (Vec<ArrayBase<OwnedRepr<f32>, IxDyn>>, ArrayD<f32>, Vec<PathBuf>)
 #[pyfunction]
-pub fn py_load_data_and_labels(py: Python, model_id: usize, folder_name: String, test_dataset: bool)->
+pub fn py_load_images_and_labels(py: Python, model_id: usize, folder_name: String, test_dataset: bool) ->
 PyResult<(PyObject, PyObject, Vec<String>)>
 {
     let chosen_model = Model::from_index(model_id).unwrap();
@@ -98,14 +91,9 @@ pub fn py_run_model(py:Python, inputs: Vec<PyObject>, model: &PyModel,
     let chosen_model = Model::from_index(id_model).unwrap();
 
     let rust_inputs = inputs.into_iter().map(|py_obj| {
-        // Use fully-qualified syntax for PyTryFrom
-        let py_array: &PyArrayDyn<f32> = pyo3::PyTryFrom::try_from(py_obj.as_ref(py)).unwrap();
-
-        // Convert PyArrayDyn<f32> to ArrayD<f32>
-        let rust_array = py_array.to_owned_array();
-
-        rust_array
+        pyobject_to_arrayd(py, py_obj).unwrap()
     }).collect();
+
 
     let rust_model = model.clone_model();
 
@@ -135,7 +123,7 @@ fn pyobject_to_arrayd(py: Python, obj: PyObject) -> PyResult<ArrayD<f32>> {
     // First, extract the PyAny from PyObject
     let py_any: &PyAny = obj.as_ref(py);
 
-    // Ensure it's an array (you might need to use specific checks for NumPy arrays)
+    // Ensure it's an array
     if let Ok(array) = py_any.extract::<&PyArrayDyn<f32>>() {
         // Convert it to ArrayD
         let shape = array.shape().iter().cloned().collect::<Vec<usize>>();
@@ -146,8 +134,7 @@ fn pyobject_to_arrayd(py: Python, obj: PyObject) -> PyResult<ArrayD<f32>> {
     }
 }
 
-//pub fn print_results (model: Model, files: &Vec<PathBuf>, final_output: &ArrayBase<OwnedRepr<f32>, IxDyn>,
-  //                    label_stack: &ArrayD<f32>) {
+//pub fn print_results (model: Model, files: &Vec<PathBuf>, final_output: &ArrayBase<OwnedRepr<f32>, IxDyn>, label_stack: &ArrayD<f32>)
 #[pyfunction]
 pub fn py_print_results (py: Python, model_id: usize, files: Vec<String>, model_output: PyObject,
 labels: PyObject) -> PyResult<()>{
@@ -163,9 +150,9 @@ labels: PyObject) -> PyResult<()>{
 
 
 #[pymodule]
-fn rust_onnx(_py: Python, m: &PyModule) -> PyResult<()> {
+fn rust_onnx_lib(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_load_model, m)?)?;
-    m.add_function(wrap_pyfunction!(py_load_data_and_labels, m)?)?;
+    m.add_function(wrap_pyfunction!(py_load_images_and_labels, m)?)?;
     m.add_function(wrap_pyfunction!(py_run_model, m)?)?;
     m.add_function(wrap_pyfunction!(py_serialize_custom_dataset, m)?)?;
     m.add_function(wrap_pyfunction!(py_print_results, m)?)?;

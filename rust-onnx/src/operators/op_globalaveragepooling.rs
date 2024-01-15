@@ -32,13 +32,8 @@ impl Operator for GlobalAveragePool {
         // Retrieve the input tensor
         let input_tensor = inputs.get(&self.input_name)
             .ok_or_else(||
-                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
+                OnnxError::TensorNotFound("Input tensor not found".to_string()))?;
 
-        if input_tensor.ndim() < 3 {
-            return Err(OnnxError::ShapeMismatch
-                ("Input tensor must have at least 3 dimensions".to_string()));
-
-        }
         let axis_to_pool: Vec<_> = (2..input_tensor.ndim()).collect();
 
         let mut y = input_tensor.clone();

@@ -19,6 +19,7 @@ impl Flatten {
         let node_name = node.name.to_owned();
         let input_name = node.input[0].to_owned();
         let output_name= node.output[0].to_owned();
+
         let opt_axis = node.attribute.iter().find(|attr| attr.name == "axis");
         let axis = match opt_axis{
             Some(x) => x.i,
@@ -32,7 +33,7 @@ impl Operator for Flatten {
     fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let input_tensor = inputs.get(&self.input_name)
             .ok_or_else(||
-                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
+                OnnxError::TensorNotFound("Input tensor not found.".to_string())).unwrap();
 
         let rank = input_tensor.ndim();
 
@@ -44,7 +45,7 @@ impl Operator for Flatten {
         } as usize;
 
         if axis > rank {
-            return Err(OnnxError::AxisOutOfBounds("Axis is out of bounds for the tensor shape".to_string()));
+            return Err(OnnxError::AxisOutOfBounds("Axis is out of bounds for the tensor shape.".to_string()));
         }
 
         // Calculate the new shape
@@ -54,7 +55,7 @@ impl Operator for Flatten {
 
         // Create the output tensor with the same data but new shape
         let output_tensor = input_tensor.clone().into_shape(new_shape)
-            .map_err(|_| OnnxError::ShapeMismatch("Error reshaping tensor".to_string()))?;
+            .map_err(|_| OnnxError::ShapeError("Error reshaping tensor.".to_string()))?;
 
         Ok(vec![output_tensor])
     }

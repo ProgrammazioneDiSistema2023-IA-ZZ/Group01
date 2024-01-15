@@ -16,9 +16,9 @@ pub struct Add {
 impl Add {
     pub fn new(node: &NodeProto, initializers: &mut HashMap<String, ArrayD<f32>>) -> Self {
         let op_type = node.op_type.to_owned();
-        //let inputs_names:Vec<String> = vec![node.input[0].to_owned(), node.input[1].to_owned()];
         let node_name= node.name.to_owned();
         let output_name = node.output[0].to_owned();
+
         let initializer_value = initializers.remove(&node.input[1]);
         let (initializers_vec, inputs_names) = match &initializer_value {
             Some(v) => {
@@ -44,11 +44,11 @@ impl Operator for Add {
     fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let a = inputs.get(&self.inputs_names[0])
             .ok_or_else(||
-                OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
+                OnnxError::TensorNotFound("First input tensor not found".to_string()))?;
         let b = match &self.initializers{
             Some(v) => v[0].get_value(),
             None => inputs.get(&self.inputs_names[1]).ok_or_else(||
-                OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap()
+                OnnxError::TensorNotFound("Second input tensor not found".to_string()))?
         };
 
         let result = a + b;

@@ -30,9 +30,14 @@ impl Reshape {
         };
 
         let mut shape_initializer = Vec::new();
-        let shape : Vec<isize>= initializers.remove(parameter_name.as_str())
-            .unwrap().iter().map(|&f| f as isize).collect();
-        shape_initializer.push(Initializer::new(parameter_name, Array::from_shape_vec(IxDyn(&[2,1]), shape.into_iter().map(|x| x as f32).collect()).unwrap()));
+        let shape = initializers.remove(parameter_name.as_str())
+            .ok_or(OnnxError::TensorNotFound("Shape initializer not found.".to_string()))
+            .unwrap()
+            .iter()
+            .map(|f|*f)
+            .collect::<Vec<f32>>();
+        shape_initializer.push(Initializer::new(parameter_name, Array::from_shape_vec(IxDyn(&[2,1]), shape.into_iter().collect())
+            .map_err(|_|OnnxError::ShapeError("Error while creating shape initializer tensor starting from its shape.".to_string())).unwrap()));
 
         let mut data_initializer = None;
         let mut input_name = None;
@@ -68,26 +73,38 @@ impl Operator for Reshape {
             Some(v) => v[0].get_value(),
             None => inputs.get(&self.input_name.clone().unwrap())
                 .ok_or_else(||
-                    OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap()
+                    OnnxError::TensorNotFound("Input tensor not found.".to_string())).unwrap()
         };
 
         let mut target_shape = self.shape_initializer[0].get_value().clone().into_raw_vec().into_iter().map(|x| x as isize).collect::<Vec<_>>();
+
+        if target_shape.len() ==0{
+            return Err(OnnxError::ShapeError("Unexpected target shape.".to_string()));
+        }
+
         if !self.flag_reshape_with_no_network_input{
             target_shape[0] *= input.shape()[0] as isize;
         }
         let mut dim_to_infer = None;
+        let mut zeroed_dim = None;
 
         for (i, dim) in target_shape.iter_mut().enumerate(){
             if *dim == -1 {
                 if dim_to_infer.is_some(){
-                    return Err(OnnxError::ShapeMismatch("Too much dimensions to infer".to_string()));
+                    return Err(OnnxError::ShapeError("Too much dimensions to infer.".to_string()));
                 }
                 dim_to_infer = Some(i);
             } else if *dim == 0{
                 if self.allow_zero == 0{
                     *dim = input.shape()[i] as isize;
                 }
+                zeroed_dim = Some(i);
             }
+        }
+
+        if dim_to_infer.is_some() && zeroed_dim.is_some() && self.allow_zero==1{
+            return Err(OnnxError::ShapeError("Unable to determine target shape: attribute allow_zero is set and there \
+            are both a 0 and a 1 in the target shape, thus making it invalid.".to_string()));
         }
 
         // Handle negative dimension (inferred dimension)
@@ -95,7 +112,7 @@ impl Operator for Reshape {
             let product_of_dimensions: isize = target_shape.iter().filter(|&&dim| dim != -1).product();
 
             if input.len() as isize % product_of_dimensions != 0 {
-                return Err(OnnxError::ShapeMismatch("Cannot infer shape due to incompatible dimensions".to_string()));
+                return Err(OnnxError::ShapeMismatch("Cannot infer shape due to incompatible dimensions.".to_string()));
             }
 
             target_shape[i] = (input.len() as isize) / product_of_dimensions;
@@ -105,7 +122,7 @@ impl Operator for Reshape {
         let input_size = input.len();
 
         if shape_size != input_size as isize {
-            return Err(OnnxError::ShapeMismatch("Dimension is not correct for the number of data".to_string()));
+            return Err(OnnxError::ShapeMismatch("Target dimensions do not match input dimensions to be reshaped.".to_string()));
         }
 
         // Convert isize dimensions to usize for reshape
@@ -114,7 +131,9 @@ impl Operator for Reshape {
             .map(|&dim| dim as usize)
             .collect();
 
-        let output_data = input.clone().into_shape(new_shape_usize).unwrap();
+        let output_data = input.clone().into_shape(new_shape_usize)
+            .map_err(|_| OnnxError::ShapeError("Error while creating shape initializer tensor starting from its shape.".to_string()))?;
+
 
         Ok(vec![output_data])
     }

@@ -17,7 +17,7 @@ Cargo.lock
 **/.idea/
 
 # parser_code modules that are generated at build time
-rust-onnx/src/parser_code/
+rust-onnx/src/onnx_parser/protoc_generated
 
 #python venv
 rust-onnx/py_rust_onnx/python-binding/

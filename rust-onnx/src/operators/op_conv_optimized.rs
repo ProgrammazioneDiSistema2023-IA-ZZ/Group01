@@ -37,12 +37,14 @@ impl Conv {
         let kernel_name = node.input[1].to_owned();
 
         let mut initializers_vec = Vec::new();
-        initializers_vec.push(Initializer::new(kernel_name.clone(), initializers.remove(kernel_name.as_str()).unwrap()));
+        initializers_vec.push(Initializer::new(kernel_name.clone(), initializers.remove(kernel_name.as_str())
+            .ok_or(OnnxError::TensorNotFound("W initializer not found.".to_string())).unwrap()));
 
 
         if node.input.len() == 3{
             let bias_name = node.input[2].to_owned();
-            initializers_vec.push(Initializer::new(bias_name.to_owned(), initializers.remove(bias_name.as_str()).unwrap()));
+            initializers_vec.push(Initializer::new(bias_name.to_owned(), initializers.remove(bias_name.as_str())
+                .ok_or(OnnxError::TensorNotFound("B initializer not found.".to_string())).unwrap()));
         }
 
         let mut kernel_shape = None;
@@ -70,7 +72,7 @@ impl Conv {
                         Err(_) => AutoPad::NotSet,
                     });
                 }
-                // Handle other attributes like "auto_pad" as needed
+                // Handle other attributes as needed
                 _ => {}
             }
         }
@@ -188,7 +190,7 @@ impl Conv {
         if b.is_some(){
             let bias_shape = [1, b.unwrap().len(), 1, 1];
             let broadcasted_bias = b.unwrap().view().into_shape(IxDyn(&bias_shape))
-                .or(Err("Bias cannot be broadcast to the result tensor shape"))?;
+                .or(Err("Bias cannot be broadcasted into the desired shape."))?;
 
             // Add the bias to the result tensor
             res += &broadcasted_bias;
@@ -258,11 +260,11 @@ impl Conv {
         let mut padded_tensor = ArrayD::<f32>::zeros(IxDyn(&new_shape));
 
         padded_tensor.slice_mut(s![
-    padding[0].0..shape[0] + padding[0].0,
-    padding[1].0..shape[1] + padding[1].0,
-    padding[2].0..shape[2] + padding[2].0,
-    padding[3].0..shape[3] + padding[3].0
-]).assign(x);
+            padding[0].0..shape[0] + padding[0].0,
+            padding[1].0..shape[1] + padding[1].0,
+            padding[2].0..shape[2] + padding[2].0,
+            padding[3].0..shape[3] + padding[3].0
+        ]).assign(x);
 
         padded_tensor
 
@@ -280,7 +282,7 @@ impl Operator for Conv{
         // 5. Return the output tensor Y.
 
         let input_name = &self.input_name;
-        let x = inputs.get(input_name).ok_or(OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
+        let x = inputs.get(input_name).ok_or(OnnxError::TensorNotFound("Input tensor not found.".to_string()))?;
         let w = self.initializers[0].get_value();
         let auto_pad = &self.auto_pad;
         let mut b_init=None ;
@@ -289,14 +291,13 @@ impl Operator for Conv{
         }
 
         if x.ndim()<4{
-            return Err(OnnxError::ShapeMismatch(format!("The input must have at least 4 dimensions but its shape is {:?}", x.shape())));
+            return Err(OnnxError::ShapeMismatch(format!("The input must have at least 4 dimensions but its shape is {:?}.", x.shape())));
         }
 
-        let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);//vec![0; x.ndim() - 2]
-        let kernel_shape = self.kernel_shape.clone().unwrap_or_else(
-            || w.shape()[2..].to_vec());
-        let pads = self.pads.clone().unwrap_or_else(|| vec![0; x.ndim() - 2].repeat(2));//vec![0; x.ndim() - 2]
-        let strides = self.strides.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);//vec![0; x.ndim() - 2]
+        let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);
+        let kernel_shape = self.kernel_shape.clone().unwrap_or_else(|| w.shape()[2..].to_vec());
+        let pads = self.pads.clone().unwrap_or_else(|| vec![0; x.ndim() - 2].repeat(2));
+        let strides = self.strides.clone().unwrap_or_else(|| vec![1; x.ndim() - 2]);
         // Initial shape checks
         if x.shape()[1] != w.shape()[1] * self.group || w.shape()[0] % self.group != 0 {
             return Err(OnnxError::ShapeMismatch(format!(
@@ -323,11 +324,13 @@ impl Operator for Conv{
                     // Check if the sliced shapes are correct
                     if gx_view.shape()[1] != dw || gw_view.shape()[0] != mg {
                         return Err(OnnxError::ShapeMismatch(
-                            format!("Incorrect shape after slicing for group {}. gx_view.shape={:?}, gw_view.shape={:?}", g, gx_view.shape(), gw_view.shape())));
+                            format!("Incorrect shape after slicing for group {}. gx_view.shape={:?}, gw_view.shape={:?}.", g, gx_view.shape(), gw_view.shape())));
                     }
-                    let gx: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gx_view.shape()), gx_view.iter().cloned().collect()).unwrap();
-                    let gw: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gw_view.shape()), gw_view.iter().cloned().collect()).unwrap();
-                    //x: , w: , bias: , auto_pad: , dilations: , kernel_shape: , pads: , strides:
+                    let gx: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gx_view.shape()), gx_view.iter().cloned().collect())
+                        .map_err(|_|OnnxError::ShapeError("Failed to create gx tensor.".to_string()))?;
+                    let gw: ArrayD<f32> = ArrayD::from_shape_vec(IxDyn(&gw_view.shape()), gw_view.iter().cloned().collect())
+                        .map_err(|_|OnnxError::ShapeError("Failed to create gw tensor.".to_string()))?;
+
                     let cv = Conv::execute_conv_optimized(gx, gw, None, auto_pad, &dilations, &kernel_shape, &pads, &strides).unwrap();
                     if b==0 {
                         td += cv[0].shape()[1];

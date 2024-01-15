@@ -36,7 +36,6 @@ pub fn create_operator(node: &NodeProto, initializer_set: &mut HashMap<String, A
         },
         "Reshape" => {
             Ok(Box::new(op_reshape::Reshape::new(node,initializer_set)))
-
         },
         _ => {
             Err(OnnxError::UnsupportedOperator("Found an operator that doesn't have an \

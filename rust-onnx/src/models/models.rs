@@ -22,7 +22,7 @@ impl Model {
             Model::MNIST => "mnist-12",
             Model::ResNet18v17 => "resnet18-v1-7",
             Model::ResNet34v27 => "resnet34-v2-7",
-            Model::MobileNetv27 => "mobilenetv2-7",
+            Model::MobileNetv27 => "mobilenet-v2-7",
         }
     }
 

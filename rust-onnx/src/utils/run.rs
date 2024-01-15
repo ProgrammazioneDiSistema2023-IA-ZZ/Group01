@@ -25,7 +25,7 @@ pub fn run(images_vec: &Vec<ArrayBase<OwnedRepr<f32>, IxDyn>>,
     let number_of_nodes_in_parallel = parallel_layers.iter().map(|v|v.len()).
                                                             filter(|v| *v>= 2).map(|v|v-1).sum::<usize>();
 
-    println!("✅  Model successfully optimized!");
+    println!("✅ Model successfully optimized!");
 
     display_model_info(chosen_model, model_read.values().len(), number_of_nodes_in_parallel);
 
@@ -125,7 +125,8 @@ pub fn run(images_vec: &Vec<ArrayBase<OwnedRepr<f32>, IxDyn>>,
     let run_time = network_timer.elapsed();
     println!("\n\n✅  The network has been successfully executed in {:?}\n", run_time);
 
-    ArrayD::from_shape_vec(IxDyn(&new_s), flat_vec).unwrap()
+    ArrayD::from_shape_vec(IxDyn(&new_s), flat_vec).map_err(|_|OnnxError::ShapeError("Failed to create output tensor from expected shape.".to_string()))
+        .unwrap()
 }
 
 fn create_graph(operators: &HashMap<String, Box<dyn Operator>>) -> DiGraph<String, ()> {

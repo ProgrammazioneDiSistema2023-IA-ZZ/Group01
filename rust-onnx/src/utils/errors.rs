@@ -15,4 +15,8 @@ pub enum OnnxError{
 
     RuntimeError(String),
 
+    ShapeError(String),
+
+    DimensionalityError(String)
+
 }

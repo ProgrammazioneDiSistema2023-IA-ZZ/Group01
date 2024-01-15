@@ -18,7 +18,8 @@ fn print_intro() {
     - 📦 Delivered with a set of validated operators, models and datasets.
     - ➕ Easy to add new operators to extend model compatibility.
     - 🖼️ Images & labels serialization to extend the set of available datasets.
-    - 🚀 Rayon-powered image-based and intra-network parallelization.
+    - 🚀 Rayon-powered image-based and intra-network parallelization. It’s super effective!
+    - 🐍 Python bindings for a complete Rusty experience.
  ----------------------------------------------------------------------------------------------------------------------------------------------\n";
 
     println!(

@@ -90,12 +90,12 @@ pub fn print_results (model: Model, files: &Vec<PathBuf>, final_output: &ArrayBa
     let table = setup_results_table(&model, files, &predictions, &ground_truth, predictions.len());
 
     if files.len() <= MAX_ELEMENTS {
-        println!("Results:\n\n{}", table.to_string());
+        println!("\nResults (green = correct prediction, red = wrong prediction):\n\n{}", table.to_string());
     } else {
         let reduced_table = setup_results_table(&model, files, &predictions, &ground_truth, MAX_ELEMENTS);
-        println!("The dataset size is too big for all the results to be printed in the console.\nTo improve \
+        println!("\nThe dataset size is too big for all the results to be printed in the console.\nTo improve \
         readability, the results have been stored in the file \"{}\".\n\
-        However, here is a sneak peek to the first {} results:\n\n{}", &FILE_NAME, MAX_ELEMENTS, reduced_table.to_string());
+        However, here is a sneak peek to the first {} results (green = correct prediction, red = wrong prediction):\n\n{}", &FILE_NAME, MAX_ELEMENTS, reduced_table.to_string());
         let mut out = File::create(FILE_NAME).unwrap();
         out.write_all(strip_ansi_codes(table.to_string() + &format!("\nError rate: {}\nAccuracy: {}", error_rate, accuracy)).as_bytes()).unwrap();
     }

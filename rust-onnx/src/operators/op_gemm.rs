@@ -26,7 +26,9 @@ impl Gemm {
         let input_name = node.input[0].to_owned();
 
         let mut initializers_vec = Vec::new();
-        initializers_vec.push(Initializer::new(node.input[1].clone(), initializers.remove(&node.input[1]).unwrap().to_owned()));
+        initializers_vec.push(Initializer::new(node.input[1].clone(), initializers.remove(&node.input[1])
+            .ok_or(OnnxError::TensorNotFound("B initializer not found.".to_string()))
+            .unwrap().to_owned()));
 
         let c = initializers.remove(&node.input[2]);
         if let Some(value) = c {
@@ -71,7 +73,7 @@ impl Operator for Gemm {
     fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let a = inputs.get(&self.input_name)
             .ok_or_else(||
-                OnnxError::TensorNotFound("Input tensor A not found".to_string())).unwrap();
+                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
         let b = self.initializers[0].get_value();
         let mut c : Option<&ArrayD<f32>> = None;
         if self.initializers.len()>1{
@@ -84,10 +86,10 @@ impl Operator for Gemm {
 
         //The shape of A should be (M, K) if transA is 0, or (K, M) if transA is non-zero.
         let a_prime_2d = a_prime.into_dimensionality::<ndarray::Ix2>()
-            .map_err(|_| OnnxError::ShapeMismatch("a_prime is not 2-dimensional".to_string()))?;
+            .map_err(|_| OnnxError::DimensionalityError("a_prime is not 2-dimensional.".to_string()))?;
         //Input tensor B. The shape of B should be (K, N) if transB is 0, or (N, K) if transB is non-zero.
         let b_prime_2d = b_prime.into_dimensionality::<ndarray::Ix2>()
-            .map_err(|_| OnnxError::ShapeMismatch("b_prime is not 2-dimensional".to_string()))?;
+            .map_err(|_| OnnxError::DimensionalityError("b_prime is not 2-dimensional.".to_string()))?;
 
         // Check shapes for matrix multiplication
         let (_, k_a) = a_prime_2d.dim();

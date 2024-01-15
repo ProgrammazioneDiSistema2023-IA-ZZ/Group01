@@ -25,7 +25,7 @@ pub fn load_model(file_path: &PathBuf) -> (HashMap<String,Box<dyn Operator>>, St
     let mut initializers: HashMap<String, ArrayD<f32>> = read_initializers(&model.graph.initializer).unwrap();
     let model_read = model_proto_to_hashmap(&model, &mut initializers);
 
-    println!("✅  ONNX model successfully loaded!");
+    println!("✅ ONNX model successfully loaded!");
 
     (model_read, input_name, final_layer_name)
 
@@ -213,7 +213,7 @@ pub fn load_images_and_labels(chosen_model: &Model, folder_name: &String, test_d
             label_stack= ArrayD::from_shape_vec(IxDyn(&new_s_label), flat_labels)
                 .map_err(|_| OnnxError::ONNXParserError("Failed to create ndarray with given shape.".to_string())).unwrap();
 
-            println!("✅  Custom dataset successfully loaded!");
+            println!("✅ Custom dataset successfully loaded!");
             images
         }
     };

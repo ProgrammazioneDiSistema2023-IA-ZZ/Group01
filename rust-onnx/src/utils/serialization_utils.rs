@@ -47,7 +47,7 @@ pub fn serialize_custom_dataset (chosen_model: &Model, folder_name: &String){
             serialize_label(label, label_pb_path, img_name, num_classes);
         }
     }
-    println!("✅  Custom dataset successfully serialized!");
+    println!("✅ Custom dataset successfully serialized!");
 }
 
 

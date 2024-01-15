@@ -31,16 +31,24 @@ impl BatchNorm {
         for inp_name in &node.input{
             match inp_name {
                 _ if inp_name.contains("gamma") =>{
-                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name)
+                        .ok_or(OnnxError::TensorNotFound("Scale initializer not found.".to_string()))
+                        .unwrap()));
                 } ,
                 _ if inp_name.contains("beta") => {
-                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name)
+                        .ok_or(OnnxError::TensorNotFound("B initializer not found.".to_string()))
+                        .unwrap()));
                 },
                 _ if inp_name.contains("mean") =>{
-                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name)
+                        .ok_or(OnnxError::TensorNotFound("Mean initializer not found.".to_string()))
+                        .unwrap()));
                 },
                 _ if inp_name.contains("var") =>{
-                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name).unwrap()));
+                    initializers_vec.push(Initializer::new(inp_name.to_owned(), initializers.remove(inp_name)
+                        .ok_or(OnnxError::TensorNotFound("Var initializer not found.".to_string()))
+                        .unwrap()));
                 },
                 _ => {  }
             }
@@ -61,7 +69,7 @@ impl Operator for BatchNorm {
     fn execute(&self, inputs: &HashMap<String, ArrayD<f32>>) -> Result<Vec<ArrayD<f32>>, OnnxError> {
         let x = inputs.get(&self.input_name)
             .ok_or_else(||
-                OnnxError::TensorNotFound("First input tensor not found".to_string())).unwrap();
+                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
         let scale = self.initializers.iter()
             .filter(|x|x.get_name().contains("gamma"))
             .collect::<Vec<_>>()[0].get_value();

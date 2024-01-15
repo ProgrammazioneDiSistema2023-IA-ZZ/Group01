@@ -42,7 +42,7 @@ impl MaxPool {
                     Some(attribute.ints.clone()) },
                 "pads" => pads = Some ( attribute.ints.clone()),
                 "storage_order" => storage_order = Some(attribute.i),
-                // Handle other attributes
+                // Handle other attributes as needed
                 _ => {}
             }
         }
@@ -67,19 +67,17 @@ impl Operator for MaxPool {
         let input_name = &self.input_name;
         let input = inputs.get(input_name)
             .ok_or_else(||
-                OnnxError::TensorNotFound("Input tensor not found".to_string())).unwrap();
+                OnnxError::TensorNotFound("Input tensor not found.".to_string())).unwrap();
 
         // Validate input tensor dimensions (assuming 4D tensor: [N, C, H, W])
         if input.ndim() != 4 {
-            return Err(OnnxError::ShapeMismatch("Input tensor must be 4D".to_string()));
+            return Err(OnnxError::ShapeMismatch(format!("The input must have at least 4 dimensions but its shape is {:?}.", input.shape())));
         }
 
         let kernel_shape = self.kernel_shape.clone().unwrap();
         let dilations = self.dilations.clone().unwrap_or_else(|| vec![1; kernel_shape.len()]);
-        let pads = self.pads.clone().unwrap_or_else(|| vec![0; kernel_shape.len()].repeat(2));//vec![0; x.ndim() - 2]
-        let strides = self.strides.clone().unwrap_or_else(|| vec![1; kernel_shape.len()]);//vec![0; x.ndim() - 2]
-
-        //let mut res = ArrayD::<f32>::zeros(vec![]);
+        let pads = self.pads.clone().unwrap_or_else(|| vec![0; kernel_shape.len()].repeat(2));
+        let strides = self.strides.clone().unwrap_or_else(|| vec![1; kernel_shape.len()]);
 
         let n_dims = kernel_shape.len();
         let new_pads: Vec<(i64, i64)> = (0..n_dims)
@@ -96,7 +94,7 @@ impl Operator for MaxPool {
                     - (dilations[i] as f32 * (kernel_shape[i] as f32 - 1.0) + 1.0))
                     / strides[i] as f32)
                     + 1.0)
-                    .ceil() as i32;
+                    .ceil() as usize;
             }
 
         } else{
@@ -106,53 +104,80 @@ impl Operator for MaxPool {
                     - (dilations[i] as f32 * (kernel_shape[i] as f32 - 1.0) + 1.0))
                     / strides[i] as f32)
                     + 1.0)
-                    .floor() as i32;
+                    .floor() as usize;
             }
         }
 
+        //Perform 2D maxpool
+        let mut y_dims = input.shape()[..2].to_vec();
+        y_dims.extend(&output_spatial_shape);
+        let y = ArrayD::zeros(IxDyn(&y_dims));
 
         let batch_size = input.shape()[0];
         let channels = input.shape()[1];
-        let in_height = input.shape()[2] as i64;
-        let in_width = input.shape()[3] as i64;
+        let height = input.shape()[2];
+        let width = input.shape()[3];
+
+        // Calculate output dimensions
+        let pooled_height = output_spatial_shape[0];
+        let pooled_width = output_spatial_shape[1];
+
+        let total_channels = batch_size*channels;
+
+        let stride_h = strides[0];
+        let stride_w = strides[1];
+
+        let x_step = height*width;
+        let y_step = pooled_height*pooled_width;
+
+        let dilation_h = dilations[0];
+        let dilation_w = dilations[1];
+
+        let x_data = input.iter().cloned().collect::<Vec<f32>>();
+        let mut y_data = y.iter().cloned().collect::<Vec<f32>>();
 
         let kernel_height = kernel_shape[0];
         let kernel_width = kernel_shape[1];
-        let stride_y = strides[0];
-        let stride_x = strides[1];
 
-        // Calculate output dimensions
-        let output_height = ((in_height - kernel_height + pads[0] + pads[2] ) / stride_y + 1).max(0);
-        let output_width = ((in_width - kernel_width + pads[1] + pads[3]) / stride_x + 1).max(0);
-
-        let output_dims = IxDyn(&[batch_size, channels, output_height as usize, output_width as usize]);
-        let mut output_data = ArrayD::from_elem(output_dims, f32::MIN);
-
-        for n in 0..batch_size {
-            for c in 0..channels {
-                for y in 0..output_height {
-                    for x in 0..output_width {
-                        let mut max_val = f32::MIN;
-
-                        for ky in 0..kernel_height {
-                            for kx in 0..kernel_width {
-                                let in_y = y * stride_y + ky - pads[0];
-                                let in_x = x * stride_x + kx - pads[1];
-
-                                if in_y >= 0 && in_x >= 0 && in_y < in_height && in_x < in_width {
-                                    let val = input[[n, c, in_y as usize, in_x as usize]];
-                                    max_val = max_val.max(val);
-                                }
+        for c in 0..total_channels{
+            let x_d = c*x_step;
+            let y_d = c*y_step;
+            for ph in 0..pooled_height{
+                let hstart = ph as i64 * stride_h -new_pads[0].0;
+                let hend = hstart+kernel_height *dilation_h;
+                for pw in 0..pooled_width{
+                    let wstart = pw as i64*stride_w -new_pads[1].0;
+                    let wend = wstart+kernel_width *dilation_w;
+                    let pool_index = ph * pooled_width+pw;
+                    let mut yh=None;
+                    for h in (hstart..hend).step_by(dilation_h as usize){
+                        if h<0 || h>=height as i64{
+                            continue;
+                        }
+                        for w in (wstart..wend).step_by(dilation_w as usize){
+                            if w<0 || w>=width as i64{
+                                continue;
+                            }
+                            let input_index = h*width as i64+w;
+                            if (x_d as i64 + input_index )<0 || (x_d + input_index as usize) >=x_data.len(){
+                                continue;
+                            }
+                            if yh.is_none() || x_data[x_d+input_index as usize]>yh.unwrap_or(f32::MAX){
+                                yh = Some(x_data[x_d+input_index as usize]);
                             }
                         }
-
-                        output_data[[n , c , y as usize, x as usize]] = max_val;
                     }
+                    if yh.is_none(){
+                        continue;
+                    }
+                    y_data[y_d+pool_index]=yh.unwrap();
                 }
             }
         }
 
-        Ok(vec![output_data])
+        let result = ArrayD::from_shape_vec(y_dims, y_data)
+            .map_err(|_| OnnxError::ShapeError("Error while creating maxpool result tensor starting from its shape.".to_string()))?;
+        Ok(vec![result])
     }
 
     fn get_inputs(&self) -> Vec<String> {
